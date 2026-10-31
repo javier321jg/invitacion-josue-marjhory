@@ -853,6 +853,12 @@ uniform float pGoldGlow;
 uniform float pGoldRough;
 uniform float pGoldBump;
 uniform float pLodBias;
+uniform vec4 pPaperLift;   // CREMA: (curva global, curva en la columna, desaturación global, desaturación en la columna)
+uniform vec4 pLiftRect;    // CREMA: columna de texto en UV (u0, v0, u1, v1) donde el papel se aclara más
+uniform vec3 pPaperCream;  // CREMA: tono crema (lineal) hacia el que se lleva el papel
+uniform float pInkBold;    // CREMA: cuerpo de la tinta (>1 = trazo más lleno y oscuro desde lejos)
+uniform float pGoldMetal;  // CREMA: metalicidad del pan de oro de los nombres
+uniform float pGoldTone;   // CREMA: cuánto refleja el oro (1 = espejo; < 1 = oro viejo más hondo, se lee sobre crema)
 varying vec4 vParch;
 float parchAO() {
   float a = vParch.x, turns = vParch.y, e = vParch.z;
@@ -885,7 +891,10 @@ float pNoise(vec2 p) {
 vec3 parchGoldLeaf(vec2 tuv) {
   vec2 p = tuv * pTextSize;
   float n = pNoise(p / 38.0) * 0.6 + pNoise(p / 11.0) * 0.28 + pNoise(p / 3.5) * 0.12;
-  vec3 c = mix(vec3(0.34, 0.185, 0.04), vec3(0.93, 0.69, 0.27), smoothstep(0.12, 0.88, n));
+  // FIX (legibilidad, decisión n.º 5): oro viejo más profundo (los nombres medían 1.7–1.9:1 contra el papel); el brillo queda
+  // para los destellos (barrido de luz y dorado)
+  // CREMA: sobre papel claro, oro aún más profundo (bronce dorado); el brillo lo ponen los reflejos y los destellos
+  vec3 c = mix(vec3(0.11, 0.058, 0.012), vec3(0.42, 0.26, 0.065), smoothstep(0.12, 0.88, n));
   vec2 q = fract(p / 190.0 + vec2(0.13, 0.37));
   float seam = 1.0 - 0.16 * (1.0 - smoothstep(0.0, 0.012, min(min(q.x, 1.0 - q.x), min(q.y, 1.0 - q.y))));
   vec2 g = p / 22.0; vec2 gi = floor(g), gf = fract(g); float f1 = 9.0, f2 = 9.0;
@@ -909,12 +918,23 @@ float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(
 #ifdef USE_MAP
   if (gl_FrontFacing) {
     diffuseColor *= texture(map, vMapUv, pLodBias);
+    { // CREMA (decisión n.º 9.4): papel más claro y crema (sobre todo en la columna de texto) para leer desde lejos; la curva
+      // aclara medios y altos y respeta los oscuros, así quedan las fibras, manchas y el diseño floral
+      vec2 lq = (vMapUv - pLiftRect.xy) / (pLiftRect.zw - pLiftRect.xy);
+      float lm = smoothstep(-0.12, 0.1, lq.x) * smoothstep(-0.05, 0.06, lq.y) * smoothstep(-0.05, 0.06, 1.0 - lq.y);
+      float pl = max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+      float pk = mix(pPaperLift.x, pPaperLift.y, lm);
+      float pl2 = 1.0 - pow(1.0 - min(pl, 0.995), pk);
+      vec3 ch = diffuseColor.rgb / pl, cc = pPaperCream / dot(pPaperCream, vec3(0.2126, 0.7152, 0.0722));
+      diffuseColor.rgb = mix(ch, cc, mix(pPaperLift.z, pPaperLift.w, lm)) * pl2;
+    }
     pThread = texture(pThreadMap, vMapUv).r;
     vec2 tuv = (vMapUv - pTextRect.xy) / (pTextRect.zw - pTextRect.xy);
     vec2 tDx = dFdx(tuv), tDy = dFdy(tuv);
     if (tuv.x > 0.0 && tuv.x < 1.0 && tuv.y > 0.0 && tuv.y < 1.0) {
       vec4 tx = textureGrad(pTextMap, tuv, tDx * pTextSharp, tDy * pTextSharp);
       float cov = mix(tx.r, tx.a, pCovFromA) * pTextFade;
+      cov = 1.0 - pow(1.0 - clamp(cov, 0.0, 1.0), pInkBold); // CREMA: trazo con más cuerpo (bordes suavizados más llenos)
       float matv = tx.g;
       float pool = tx.b * (1.0 - pCovFromA);
       float gk = smoothstep(0.7, 0.92, matv);
@@ -944,11 +964,12 @@ float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(
       float rim = 0.0;   // filete oscuro de bol alrededor del oro (como en los códices iluminados): los nombres se leen mejor
       if (gk > 0.01) {
         vec2 e2 = 1.0 / vec2(textureSize(pTextMap, 0));
-        vec4 bl = textureGrad(pTextMap, tuv, tDx * 3.0 + vec2(e2.x * 3.2, 0.0), tDy * 3.0 + vec2(0.0, e2.y * 3.2));
-        rim = clamp(mix(bl.r, bl.a, pCovFromA) * pTextFade * 2.6 - cov, 0.0, 1.0) * gk * rev;
+        vec4 bl = textureGrad(pTextMap, tuv, tDx * 3.0 + vec2(e2.x * 5.0, 0.0), tDy * 3.0 + vec2(0.0, e2.y * 5.0));
+        rim = clamp(mix(bl.r, bl.a, pCovFromA) * pTextFade * 5.5 - cov, 0.0, 1.0) * gk * rev;
         // sombra suave del oro en relieve (la vela está arriba a la izquierda → cae abajo a la derecha)
-        vec4 sh = textureGrad(pTextMap, tuv + vec2(-e2.x * 3.5, e2.y * 3.5), tDx * 4.0 + vec2(e2.x * 3.0, 0.0), tDy * 4.0 + vec2(0.0, e2.y * 3.0));
-        rim = max(rim, clamp(mix(sh.r, sh.a, pCovFromA) * pTextFade * 1.6 - cov, 0.0, 1.0) * gk * rev * 0.55);
+        // CREMA: sombra más marcada (sobre papel claro el oro necesita su relieve oscuro para leerse desde lejos)
+        vec4 sh = textureGrad(pTextMap, tuv + vec2(-e2.x * 4.0, e2.y * 4.0), tDx * 4.0 + vec2(e2.x * 3.0, 0.0), tDy * 4.0 + vec2(0.0, e2.y * 3.0));
+        rim = max(rim, clamp(mix(sh.r, sh.a, pCovFromA) * pTextFade * 2.2 - cov, 0.0, 1.0) * gk * rev * 0.85);
       }
       vec3 dry = mix(pInkColor, pSepiaColor, sep) * (1.0 + 0.3 * (1.0 - load));
       vec3 inkC = mix(dry, pWetColor, pow(wet, 0.75)) * (1.0 - 0.28 * pool);
@@ -956,7 +977,7 @@ float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(
       vec3 cInk = mix(base, inkC, aS);
       vec3 mord = mix(vec3(0.16, 0.05, 0.022), vec3(0.085, 0.024, 0.012), wet);
       vec3 leaf = gk > 0.001 ? parchGoldLeaf(tuv) : vec3(0.8, 0.6, 0.3);
-      vec3 cGold = mix(base * (1.0 - 0.78 * rim * vec3(0.6, 0.78, 0.88)), mix(mord, leaf, gild), a);
+      vec3 cGold = mix(base * (1.0 - 0.95 * rim * vec3(0.85, 0.9, 0.95)), mix(mord, leaf, gild), a);
       diffuseColor.rgb = mix(cInk, cGold, gk);
       pInk = aS * (1.0 - gk);
       pGold = a * gk * gild;
@@ -990,7 +1011,7 @@ const GLSL_ALPHAMAP = /* glsl */`
 `;
 
 // ───────────────────────────── API principal ─────────────────────────────
-const INK_DRY = [0.0176, 0.0075, 0.0037];    // #24150c (tinta ferrogálica seca), lineal
+const INK_DRY = [0.0091, 0.0049, 0.0027];    // CREMA: #1a120c casi negro (tinta ferrogálica seca, antes #24150c), lineal
 const INK_SEPIA = [0.095, 0.045, 0.016];     // adornos (filetes, divisor) en sepia, lineal
 const INK_WET = [0.0125, 0.0115, 0.022];     // recién puesta: negro azulado (agalla de hierro fresca, ≈ misma luminancia); seca a negro café
 const WET_REAL_S = 0.95;                      // la tinta brilla húmeda ~1 s de tiempo REAL (se adapta a la velocidad de la escena)
@@ -1143,6 +1164,12 @@ export async function createParchment(opts = {}) {
     pThreadMetal: { value: antiguo ? 0.7 : 0.6 }, pThreadRough: { value: antiguo ? 0.34 : 0.36 },
     pSweep: { value: -9 }, pSweepGain: { value: 1.25 }, pGoldGlow: { value: 0.07 }, pGoldRough: { value: 0.25 }, pGoldBump: { value: 1.4 },
     pLodBias: { value: -0.3 },
+    // CREMA (decisión n.º 9.4): papel claro en la columna, tinta con cuerpo y oro de los nombres menos espejo (se ajustan en vivo)
+    pPaperLift: { value: new THREE.Vector4(1.5, 2.8, 0.25, 0.65) },
+    pLiftRect: { value: new THREE.Vector4(TEXT_UV.u0 + 0.06, TEXT_UV.v0 - 0.02, TEXT_UV.u1, TEXT_UV.v1 + 0.02) },
+    pPaperCream: { value: new THREE.Vector3(0.88, 0.78, 0.6) },
+    pInkBold: { value: 1.7 },
+    pGoldMetal: { value: 0.6 }, pGoldTone: { value: 0.6 },
   };
   const bindUniforms = (shader) => { for (const k in U) shader.uniforms[k] = U[k]; };
   const vertDeform = (vs, withNormal) => {
@@ -1182,7 +1209,7 @@ export async function createParchment(opts = {}) {
         roughnessFactor = mix(roughnessFactor, 0.6, pWet);`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
         metalnessFactor = mix(metalnessFactor, pThreadMetal, pThread);
-        metalnessFactor = mix(metalnessFactor, 0.88, pGold);`)
+        metalnessFactor = mix(metalnessFactor, pGoldMetal, pGold);`)
       .replace('#include <normal_fragment_maps>', nfm)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         {
@@ -1190,12 +1217,14 @@ export async function createParchment(opts = {}) {
           float along = (q.x * pW * 0.9063 + q.y * pH * 0.4226) / 0.17;
           float band = exp(-pow((along - pSweep * 1.15) / 0.16, 2.0));
           float gAmt = max(pGold, pThread * 0.55);
-          totalEmissiveRadiance += diffuseColor.rgb * gAmt * (pGoldGlow + band * pSweepGain) * pAO;
+          totalEmissiveRadiance += diffuseColor.rgb * gAmt * (pGoldGlow + band * pSweepGain * 1.35) * pAO;
           if (gl_FrontFacing) totalEmissiveRadiance += diffuseColor.rgb * band * 0.03 * pAO * (1.0 - pInk) + pEmit * pAO;
         }`)
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>
         reflectedLight.directDiffuse *= pAO; reflectedLight.directSpecular *= pAO;
         reflectedLight.indirectDiffuse *= pAO; reflectedLight.indirectSpecular *= pAO;
+        reflectedLight.indirectSpecular *= mix(1.0, 0.8 * pGoldTone, pGold);   // FIX legibilidad: oro algo más profundo (sin perder el barrido)
+        reflectedLight.directSpecular *= mix(1.0, pGoldTone, pGold);           // CREMA: sobre papel claro el oro se lee más hondo
         #ifdef USE_SHEEN
         sheenSpecularDirect *= pAO; sheenSpecularIndirect *= pAO;
         #endif`);

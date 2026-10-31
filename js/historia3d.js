@@ -20,7 +20,8 @@
 import { STORY } from './content.js';
 
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
-const REDUCED = QS.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+// COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) la foto se forma con flores igual
+const REDUCED = QS.has('reduced') || (matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('soft-motion'));
 const NO_GL = QS.has('nogl') || QS.get('historia') === 'off';
 const ALLOW_SW = QS.get('sw') === '1';
 const COARSE = matchMedia('(pointer: coarse)').matches;
@@ -68,11 +69,12 @@ vec3 grade(vec3 c) {
 }
 // sombra inferior y viñeta del marco (como el ::after de la <img>)
 vec3 frameShade(vec3 c, vec2 q) {
-  float g = smoothstep(.56, 1.02, q.y) * .5;
+  // CREMA: viñeta cálida y suave (sobre el papel crema el pie oscuro de la foto pesaba como un hueco)
+  float g = smoothstep(.62, 1.02, q.y) * .2;
   vec2 d = (q - vec2(.5, .34)) * vec2(1., 1.18);
-  float v = smoothstep(.42, .9, length(d)) * .32;
+  float v = smoothstep(.45, .92, length(d)) * .18;
   float k = 1. - (1. - g) * (1. - v);
-  return mix(c, vec3(.071, .047, .035), k);
+  return mix(c, vec3(.36, .26, .16), k);
 }
 `;
 
@@ -226,12 +228,13 @@ void main() {
 
   // sombra suave bajo el marco
   float sd = sdArch(p + vec2(0., 26.));
-  float sh = (1. - smoothstep(-30., 70., sd)) * .55 * max(uPhotoA, uFill * .5);
-  acc = over(acc, vec4(0., 0., 0., sh));
+  // CREMA: sombra cálida y suave sobre el papel (negra al 55 % ensuciaba el crema)
+  float sh = (1. - smoothstep(-30., 70., sd)) * .3 * max(uPhotoA, uFill * .5);
+  acc = over(acc, vec4(vec3(.36, .25, .12) * sh, sh));
 
   float inside = smoothstep(.75, -.75, d);
-  // lienzo donde se ensamblan las flores
-  acc = over(acc, vec4(vec3(.149, .102, .075) * .55, .55) * inside * uFill);
+  // lienzo donde se ensamblan las flores (CREMA: papel algo más hondo que la página, no un hueco oscuro)
+  acc = over(acc, vec4(vec3(.89, .84, .74) * .6, .6) * inside * uFill);
 
   // foto nítida con parallax por mapa de profundidad: se marcha el rayo ojo→píxel sobre el relieve (oclusión correcta,
   // sin ondas en los bordes de los rostros). Punto del rayo a la altura h: X = S + (E - S)·h/D.
@@ -477,7 +480,7 @@ void main() {
   float star = vK > .86 ? (exp(-abs(c.x) * 42.) * exp(-abs(c.y) * 7.) + exp(-abs(c.y) * 42.) * exp(-abs(c.x) * 7.)) * .7 : 0.;
   float a = (core + halo + star) * vA;
   if (a < .004) discard;
-  gl_FragColor = vec4(vec3(1., .86, .58) * a, a * .5);
+  gl_FragColor = vec4(vec3(.8, .58, .26) * a, a * .9);   // CREMA: polvo de oro viejo (el brillo aditivo no se veía sobre crema)
 }
 `;
 
@@ -613,7 +616,9 @@ async function buildParticles(nTotal, seed = 7) {
       aR[k * 4] = (rng() * 256) | 0; aR[k * 4 + 1] = (rng() * 256) | 0; aR[k * 4 + 2] = (rng() * 256) | 0; aR[k * 4 + 3] = (rng() * 256) | 0;
       const d0x = u - f0[0], d0y = (v - f0[1]) * 1.25, d1x = u - f1[0], d1y = (v - f1[1]) * 1.25;
       const f = Math.min(1, Math.sqrt(Math.min(d0x * d0x + d0y * d0y, d1x * d1x + d1y * d1y)) / 0.5);
-      const w = clamp(0.5 * (1 - f) + 0.32 * vnoise(u, v) + 0.18 * rng());
+      // FIX (arte): antes las caras se formaban AL FINAL (0.5·(1−f)) y entre p 0.45 y 0.95 se veían como un mosaico
+      // "censurado" (indefinidamente si el invitado se detenía); ahora se asientan algo antes que los bordes
+      const w = clamp(0.22 * f + 0.36 * vnoise(u, v) + 0.2 * rng());
       const delay = lerp(cl.delay[0], cl.delay[1], w);
       const dur = Math.min(lerp(cl.dur[0], cl.dur[1], rng()), 1 - delay);
       let keep = 0, gu = u, gv2 = v;
@@ -821,7 +826,7 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
   }
 
   async function initGL() {
-    const THREE = await import('three');
+    const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/+esm'); // FIX: sin import maps (iOS < 16.4)
     if (disposed) return;
     const wrap = document.createElement('div');
     wrap.className = 'story__gl';
@@ -1137,6 +1142,7 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
       try { unBeat = m.onBeat((i, time, info) => { const s = info?.strength ?? 0.6; beat = Math.max(beat, (info?.downbeat ? 0.55 : 0.32) + 0.45 * s); }); } catch {}
     };
 
+    let visFor = 0;
     const targetFromScroll = vh => {
       const frameTopV = L.wrapDocTop - scrollY + L.fcy - L.fh / 2;
       return clamp((vh - frameTopV) / (0.38 * vh + L.fh / 2));   // 0: asoma por abajo · 1: la foto entera a la vista
@@ -1159,7 +1165,14 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
       }
       const vw = docEl.clientWidth, vh = innerHeight;
       // progreso: ligado al scroll, suavizado y con velocidad máxima (siempre se ve formarse)
-      const target = forced ?? targetFromScroll(vh);
+      // FIX: además del scroll, el tiempo: con la foto ≥ 70 % a la vista durante 2.5 s se termina de formar aunque el
+      // invitado no siga bajando (antes quedaba a medio formar con las caras en mosaico mientras no se moviera)
+      {
+        const ft = L.wrapDocTop - scrollY + L.fcy - L.fh / 2, fb = ft + L.fh;
+        const frac = L.fh > 0 ? (Math.min(vh, fb) - Math.max(0, ft)) / L.fh : 0;
+        visFor = frac >= 0.7 ? visFor + dt : 0;
+      }
+      const target = forced ?? Math.max(targetFromScroll(vh), Math.min(1, visFor / 2.5));
       G.target = target;
       const diff = target - G.prog;
       const step = diff * (1 - Math.exp(-dt * 4.2));

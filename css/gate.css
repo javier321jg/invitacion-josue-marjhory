@@ -151,6 +151,7 @@
 .cg-col {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   text-align: center;
+  padding: calc(clamp(28px, 7vh, 72px) + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px));
   padding: calc(clamp(28px, 7svh, 72px) + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 .cg-face .cg-col { left: 0; right: 0; }
@@ -161,7 +162,7 @@
 }
 .cg-names {
   margin: .14em 0 0; padding: .16em .42em .3em; font-family: var(--f-script); font-weight: 400;
-  font-size: min(13.4vw, 11.2svh, 108px); line-height: 1.08; white-space: nowrap; letter-spacing: .005em;
+  font-size: min(13.4vw, 11.2vh, 108px); font-size: min(13.4vw, 11.2svh, 108px); line-height: 1.08; white-space: nowrap; letter-spacing: .005em;
   background-image:
     linear-gradient(104deg, rgba(255, 252, 240, 0) 42%, rgba(255, 250, 232, .95) 49%, rgba(255, 255, 255, 1) 50%, rgba(255, 250, 232, .9) 51%, rgba(255, 252, 240, 0) 58%),
     var(--cg-foil);
@@ -181,7 +182,7 @@
 }
 
 /* Hilo dorado de carga (se completa con el progreso) */
-.cg-thread { position: relative; width: clamp(170px, 46vw, 250px); height: 26px; margin: clamp(10px, 2.2svh, 22px) 0 0; }
+.cg-thread { position: relative; width: clamp(170px, 46vw, 250px); height: 26px; margin: clamp(10px, 2.2vh, 22px) 0 0; margin: clamp(10px, 2.2svh, 22px) 0 0; }
 .cg-thread svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .cg-thread__track { fill: none; stroke: rgba(150, 112, 60, .22); stroke-width: 1; }
 .cg-thread__prog { fill: none; stroke: url(#cg-thread-g); stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
@@ -258,7 +259,7 @@
 }
 
 .cg-hint {
-  margin: clamp(4px, 1.2svh, 14px) 0 0; font-family: var(--f-serif); font-style: italic; font-weight: 500;
+  margin: clamp(4px, 1.2vh, 14px) 0 0; margin: clamp(4px, 1.2svh, 14px) 0 0; font-family: var(--f-serif); font-style: italic; font-weight: 500;
   font-size: clamp(17px, 4.5vw, 21px); line-height: 1.3; color: var(--cg-ink); letter-spacing: .02em;
   opacity: 0; transform: translateY(6px); transition: opacity 1.2s ease, transform 1.2s var(--cg-ease);
   cursor: pointer; touch-action: manipulation;
@@ -270,7 +271,7 @@
 .cg-skip {
   /* FIX: área táctil ≥ 44 px (antes 38 px de alto) */
   display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
-  margin: clamp(2px, 1.2svh, 14px) 0 0; padding: 10px 14px; background: none; border: 0; cursor: pointer; -webkit-appearance: none; appearance: none;
+  margin: clamp(2px, 1.2vh, 14px) 0 0; margin: clamp(2px, 1.2svh, 14px) 0 0; padding: 10px 14px; background: none; border: 0; cursor: pointer; -webkit-appearance: none; appearance: none;
   font-family: var(--f-sans); font-weight: 500; font-size: 10px; line-height: 1.4; letter-spacing: .26em; text-indent: .26em;
   text-transform: uppercase; color: rgba(74, 52, 38, .62);
   text-decoration: underline; text-decoration-color: rgba(184, 145, 79, .5); text-underline-offset: 6px; text-decoration-thickness: 1px;
@@ -323,7 +324,7 @@
 @media (max-height: 560px) and (min-aspect-ratio: 1/1) {
   .cgate { --cg-bow: min(62svh, 46vw); }
   .cg-col { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
-  .cg-names { font-size: min(9.5vw, 13svh, 72px); }
+  .cg-names { font-size: min(9.5vw, 13vh, 72px); font-size: min(9.5vw, 13svh, 72px); }
   .cg-thread { display: none; }
   .cg-hint { margin-top: 0; font-size: 16px; }
   .cg-skip { padding: 6px 14px; }
@@ -354,6 +355,15 @@ html:has(.cgate:not(.is-gone)) .fx-grain { opacity: .3; }
 .cgate.cg-reduced .cg-thread-draw { stroke-dashoffset: 0; }
 .cgate.cg-reduced .cg-fade-in { opacity: 1; }
 .cgate.cg-reduced .cg-glint { transform: scale(0); }
+/* COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) la puerta se anima igual */
 @media (prefers-reduced-motion: reduce) {
-  .cgate *, .cgate *::before, .cgate *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; }
+  html:not(.soft-motion) .cgate *, html:not(.soft-motion) .cgate *::before, html:not(.soft-motion) .cgate *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; }
+}
+
+/* FIX compatibilidad (Safari < 15.4, Chrome < 108, Samsung Internet < 21: sin unidades svh). Las variables con svh quedaban
+   inválidas al usarse (el tamaño del lazo se perdía): mismas medidas con vh. */
+@supports not (height: 1svh) {
+  .cgate { --cg-bow: min(72vw, 62vh, 720px); }
+  @media (max-aspect-ratio: 3/4) { .cgate { --cg-bow: min(116vw, 56vh); } }
+  @media (max-height: 560px) and (min-aspect-ratio: 1/1) { .cgate { --cg-bow: min(62vh, 46vw); } }
 }

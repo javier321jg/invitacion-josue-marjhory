@@ -47,8 +47,9 @@
 //  · Tintero: lugar reservado en la mesa (api.inkwell) y gancho attachQuill(quill) para js/pluma.js (lo cablea UNIR).
 //  · prefers-reduced-motion: sin viaje de cámara (cortes con fundido) y el texto aparece con un fundido corto.
 
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// FIX compatibilidad (iOS < 16.4 sin import maps): URL completa del ESM de jsDelivr, la misma que usan rings3d/pluma/historia/final
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/+esm';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm';
 import * as PARCH from './parchment.js'; // extras de PARCH-ANIM (unrollEase, getPen…) se usan solo si existen
 
 import { createRibbon } from './ribbon.js';
@@ -84,8 +85,30 @@ const Z_C = CLOSED.topCenter[2];            // = R_C
 const TABLE_Z_LOCAL = Z_C - R_C - 0.00037;  // mesa en el marco local del pergamino tumbado (la banda del lazo pasa debajo)
 const OPEN_HALF_H = DIMENSIONS.LfMax / 2 + 0.0125; // media altura visible abierto (parte plana + rollo)
 const ROD_HALF = 0.189;                     // varilla con remates (varilla.glb)
-const BG = '#0c0806';
+// CREMA (decisión n.º 9.1): estudio de papel crema (como la puerta y el resto del sitio), sin vacío marrón. La niebla funde la mesa
+// con el fondo. Con posproceso el fondo pasa por ACES + sepia + calidez: se usa el color que, tras esa cadena, sale ≈ BG.
+const BG = '#f1e7d4';
 const UP = new THREE.Vector3(0, 1, 0);
+function bgColors() {
+  const t = new THREE.Color(BG); // lineal
+  const tgt = [t.r, t.g, t.b];
+  const f = (x) => (x * (x + 0.0245786) - 0.000090537) / (x * (0.983729 * x + 0.432951) + 0.238081);
+  const fwd = ([r0, g0, b0]) => { // three r170 ACESFilmicToneMapping (exposición 1) + sepia 0.12 + calidez 0.6 de FS_COMPOSITE
+    const r = r0 / 0.6, g = g0 / 0.6, b = b0 / 0.6;
+    const a0 = f(0.59719 * r + 0.35458 * g + 0.04823 * b), a1 = f(0.076 * r + 0.90834 * g + 0.01566 * b), a2 = f(0.0284 * r + 0.13383 * g + 0.83777 * b);
+    let c = [1.60475 * a0 - 0.53108 * a1 - 0.07367 * a2, -0.10208 * a0 + 1.10813 * a1 - 0.00605 * a2, -0.00327 * a0 - 0.07276 * a1 + 1.07602 * a2].map((v) => Math.min(1, Math.max(0, v)));
+    const l = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2], sp = [l * 1.12 + 0.018, l * 0.93 + 0.01, l * 0.68];
+    c = c.map((v, i) => v + (sp[i] - v) * 0.12);
+    return [c[0] * 1.018, c[1], c[2] * 0.97];
+  };
+  let v = tgt.slice();
+  for (let it = 0; it < 80; it++) { const o = fwd(v); v = v.map((x, i) => Math.max(0, x + (tgt[i] - o[i]) * 1.4)); }
+  const post = new THREE.Color().setRGB(v[0], v[1], v[2], THREE.LinearSRGBColorSpace);
+  // sin posproceso la niebla se mezcla DESPUÉS de pasar a sRGB (fog_fragment va tras colorspace_fragment): componentes sRGB
+  const s = new THREE.Color(BG).getRGB({}, THREE.SRGBColorSpace);
+  const fogDirect = new THREE.Color().setRGB(s.r, s.g, s.b, THREE.LinearSRGBColorSpace);
+  return { post, direct: new THREE.Color(BG), fogDirect };
+}
 
 // Niveles de calidad (0 = máximo). post: 2 = bloom + DOF, 1 = solo bloom, 0 = render directo (MSAA del contexto,
 // viñeta y sepia por CSS). samples 0 → FXAA en la composición (resolver MSAA en un destino HDR es lo más caro en iGPU).
@@ -111,9 +134,21 @@ const LEVELS = [
 // Medido (shots/perf/up/): un bloque de 116–131 ms → franjas de ≤ 28 ms incluso forzando la sincronización con la GPU.
 // Devuelve false si no aplica (WebGL1, formato distinto, sin fetch…) y entonces se usa renderer.initTexture().
 // PERF-RETOMA: los lienzos (canvas) también van por franjas: createImageBitmap(lienzo) + las mismas franjas.
+// FIX (Safari < 17 / iOS < 17, también los navegadores de Instagram/Facebook/WhatsApp en iOS, que no llevan «Version/»):
+// three 0.170 desactiva createImageBitmap ahí a propósito (WebKit 232357: texturas grandes negras o caída del proceso de GPU)
+// y su GLTFLoader usa <img> con URL blob: que revoca al cargar (volver a pedirlas fallaba con ERR_FILE_NOT_FOUND).
+const OLD_WEBKIT = (() => {
+  try {
+    const ua = navigator.userAgent || '';
+    const ios = +(ua.match(/OS (\d+)_\d+(?:_\d+)? like Mac OS X/) || [])[1] || 0;
+    const saf = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua) ? +(ua.match(/Version\/(\d+)/) || [])[1] || 0 : 0;
+    return (ios > 0 && ios < 17) || (saf > 0 && saf < 17);
+  } catch { return false; }
+})();
 async function uploadInStrips(THREE, renderer, tex, idle) {
   const img = tex.image;
   if (!img || !renderer.capabilities.isWebGL2 || typeof createImageBitmap !== 'function') return false;
+  if (OLD_WEBKIT || /^blob:/.test(img?.src || '')) return false;
   if (tex.isDataTexture || tex.isCompressedTexture || tex.isVideoTexture || tex.isCubeTexture || tex.isRenderTargetTexture || (tex.mipmaps && tex.mipmaps.length)) return false;
   if (tex.format !== THREE.RGBAFormat || tex.type !== THREE.UnsignedByteType || tex.premultiplyAlpha) return false;
   const isImg = typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement;
@@ -190,7 +225,9 @@ const TL_REDUCED = {
 // ESCENA · ritmo de la secuencia guiado por el scroll (fracciones del recorrido fijo que main.js pasa con setScrollProgress)
 // 0 → sOpen: sello, lazo, elevar, desenrollar · sOpen → sWrite: escritura · sWrite → sBack: la cámara se aleja · resto: CTAs.
 // Topes de velocidad (s naturales por s reales) y tau = segundos de retraso que añaden +1× de velocidad.
-const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 3.2, writeCap: 6, backCap: 2.5, tau: 0.85, openEst: 7.6 };
+// COMPAT-FLUIDEZ: backCap 2.5 → 6 (quien ya baja tras la escritura no espera el alejamiento completo a 1×: main.js acorta
+// la sección al terminar de escribir y su tramo final guía el alejamiento)
+const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 3.2, writeCap: 6, backCap: 6, tau: 0.85, openEst: 7.6 };
 const READ_HOLD = 0.7;   // s (naturales) con todo escrito antes de alejarse
 const BACK_DUR = 2.6;    // s (naturales) del alejamiento final; los CTA aparecen al 55 %
 
@@ -270,7 +307,8 @@ void main(){
   // viñeta independiente del aspecto
   vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;
   float rr = length(q) / length(vec2(0.5 * uRes.x / uRes.y, 0.5));
-  col *= 1.0 - uVig * keep * smoothstep(0.32, 1.08, rr);
+  // CREMA: viñeta de papel (borde apenas tostado), no un marco oscuro
+  col *= mix(vec3(1.0), vec3(0.86, 0.78, 0.66), uVig * keep * smoothstep(0.32, 1.08, rr));
   col *= uFade;
   vec4 o = linearToOutputTexel(vec4(max(col, 0.0), 1.0));
   float n = hash12(gl_FragCoord.xy + fract(uTime * 7.13) * 917.0) - 0.5;
@@ -499,6 +537,31 @@ function radialTex(stops, size = 128) {
   stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, size, size);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+// CREMA (decisión n.º 9.1): mantel de lino crema procedural y repetible (en vez de la mesa de nogal oscuro): tafetán de hilos de
+// 4 px con relieve por hilo, grosor irregular y algún nudo; de lejos se promedia en un crema parejo que se funde con la niebla.
+function linenTex(size = 512) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'); const img = g.createImageData(size, size); const d = img.data;
+  const r = mulberry32(11), n = size >> 2;
+  const wv = new Float32Array(n), wp = new Float32Array(n);
+  for (let i = 0; i < n; i++) { wv[i] = (r() - 0.5) * 0.09; wp[i] = (r() - 0.5) * 0.09; }
+  const prof = [0.9, 1.0, 1.0, 0.92];
+  const hash = (a, b) => { let h = Math.imul(a, 374761393) + Math.imul(b, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  for (let y = 0; y < size; y++) {
+    const ty = y >> 2, py = y & 3;
+    for (let x = 0; x < size; x++) {
+      const tx = x >> 2, px = x & 3;
+      const weftTop = ((tx + ty) & 1) === 0;
+      let v = weftTop ? 1 + wv[ty] + (hash(ty, tx >> 3) > 0.93 ? 0.05 : 0) : 1 + wp[tx] + (hash(tx + 999, ty >> 3) > 0.93 ? 0.05 : 0);
+      v *= weftTop ? prof[py] : prof[px];
+      v += (r() - 0.5) * 0.035;
+      const i = (y * size + x) * 4;
+      d[i] = Math.min(255, 241 * v); d[i + 1] = Math.min(255, 232 * v); d[i + 2] = Math.min(255, 214 * v); d[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
 function vGradientTex(stops) {
   const c = document.createElement('canvas'); c.width = 4; c.height = 128;
   const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 128);
@@ -511,6 +574,9 @@ export async function mountScroll(container, opts = {}) {
   if (!container) throw new Error('mountScroll: falta el contenedor');
   let music = opts.music || null;
   const reduced = !!opts.reducedMotion;
+  // COMPAT-FLUIDEZ · modo suave (prefers-reduced-motion del sistema, main.js): la secuencia completa (sello, lazo, pluma que
+  // escribe por trazos) pero la cámara no viaja: un solo acercamiento lento al encuadre final, sin parallax del puntero
+  const soft = !reduced && !!opts.softMotion;
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
   const onOpenedCb = typeof opts.onOpened === 'function' ? opts.onOpened : () => {};
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -533,7 +599,7 @@ export async function mountScroll(container, opts = {}) {
   try { if (getComputedStyle(container).position === 'static') container.style.position = 'relative'; } catch { /* */ }
   container.appendChild(canvas);
   const vignetteEl = document.createElement('div');
-  vignetteEl.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background:radial-gradient(ellipse 75% 70% at 50% 50%, rgba(0,0,0,0) 45%, rgba(8,5,3,.62) 100%);';
+  vignetteEl.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background:radial-gradient(ellipse 80% 75% at 50% 50%, rgba(150,112,62,0) 55%, rgba(150,112,62,.2) 100%);';
   container.appendChild(vignetteEl);
 
   let renderer;
@@ -586,8 +652,14 @@ export async function mountScroll(container, opts = {}) {
   try { post = createPost(renderer, { samples: Q.samples, hdr }); } catch (e) { console.warn('[scroll3d] posproceso no disponible:', e?.message || e); }
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BG);
-  scene.fog = new THREE.Fog(BG, 1.15, 3.6);
+  const BGC = bgColors();
+  scene.background = BGC.post.clone();
+  scene.fog = new THREE.Fog(BGC.post.clone(), 1.5, 3.9);
+  // CREMA: fondo/niebla según el camino de render (con posproceso: color pre-ACES; directo: crema tal cual)
+  const applyBg = (usePost) => {
+    scene.background.copy(usePost ? BGC.post : BGC.direct);
+    scene.fog.color.copy(usePost ? BGC.post : BGC.fogDirect);
+  };
   const camera = new THREE.PerspectiveCamera(30, aspect, 0.01, 12);
   const pmrem = new THREE.PMREMGenerator(renderer);
 
@@ -599,12 +671,12 @@ export async function mountScroll(container, opts = {}) {
       const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side });
       const o = new THREE.Mesh(geo, m); o.position.set(...pos); if (look) o.lookAt(0, 0.15, 0); s.add(o); disp.push(geo, m); return o;
     };
-    add(new THREE.BoxGeometry(9, 5, 9), '#241810', 0.55, [0, 1.6, 0], false, THREE.BackSide);
+    add(new THREE.BoxGeometry(9, 5, 9), '#d9c8aa', 0.36, [0, 1.6, 0], false, THREE.BackSide);   // CREMA: estudio claro
     add(new THREE.PlaneGeometry(1.8, 1.1), '#ffb070', 4.2, [-2.1, 2.3, 1.9]);   // vela grande fuera de cuadro (clave)
     add(new THREE.PlaneGeometry(0.45, 0.45), '#ff8a36', 12, [-1.0, 0.45, -1.3]); // vela del fondo
     add(new THREE.PlaneGeometry(2.4, 1.2), '#9fb4ff', 0.75, [2.5, 1.4, -2.1]);   // contraluz frío
     add(new THREE.PlaneGeometry(3.2, 0.7), '#ffcf96', 0.7, [0.4, 2.9, 0.6]);     // techo cálido
-    const floor = add(new THREE.PlaneGeometry(9, 9), '#3a2416', 0.45, [0, -0.02, 0], false); floor.rotation.x = -Math.PI / 2;
+    const floor = add(new THREE.PlaneGeometry(9, 9), '#a8875e', 0.4, [0, -0.02, 0], false); floor.rotation.x = -Math.PI / 2;
     const rt = pmrem.fromScene(s, 0.035);
     disp.forEach((d) => d.dispose());
     return rt;
@@ -616,14 +688,14 @@ export async function mountScroll(container, opts = {}) {
   // ───────── luces: vela clave (spot con sombras suaves) + relleno + contraluz + vela visible + destello del lacre
   const KEY_I = 4.1;
   const KEY_ANGLE = 0.38;
-  const key = new THREE.SpotLight('#ffb36e', KEY_I, 0, KEY_ANGLE, 0.88, 2);
+  const key = new THREE.SpotLight('#ffc890', KEY_I, 0, KEY_ANGLE, 0.88, 2); // CREMA: vela menos naranja (papel crema, no tostado)
   key.position.set(-0.44, 0.86, 0.66);
   key.castShadow = true;
   key.shadow.mapSize.set(Q.shadow, Q.shadow);
   key.shadow.camera.near = 0.35; key.shadow.camera.far = 2.6;
   key.shadow.bias = -0.0001; key.shadow.normalBias = 0.0009;
   scene.add(key, key.target);
-  const hemi = new THREE.HemisphereLight('#ffe0b8', '#2a170d', 0.13);
+  const hemi = new THREE.HemisphereLight('#fff0dc', '#a88a64', 0.4); // CREMA: la sala clara rellena las sombras (antes 0.13 a oscuras)
   scene.add(hemi);
   // contraluz frío acotado al pergamino (como direccional teñía de azul toda la mesa en pantallas anchas)
   const rim = new THREE.SpotLight('#a9bfff', 1.15, 0, 0.42, 1.0, 2);
@@ -637,7 +709,7 @@ export async function mountScroll(container, opts = {}) {
   // ESCENA · luz de lectura: direccional cálida SIN sombra (ilumina parejo toda la hoja: en una superficie plana N·L es constante).
   // Nace con intensidad 0 (ya cuenta para los programas compilados en el calentamiento) y sube al elevarse el pergamino. Mientras
   // tanto la vela clave se vuelve más frontal y abierta: la sombra del rollo superior cae detrás del rollo (sin banda oscura).
-  const readLight = new THREE.DirectionalLight('#ffe0bc', 0);
+  const readLight = new THREE.DirectionalLight('#fff1de', 0); // CREMA: luz de lectura casi blanca cálida
   readLight.position.set(-0.22, 0.62, 1.15);
   scene.add(readLight, readLight.target);
   const KEY_POS = key.position.clone(), KEY_READ_POS = new THREE.Vector3(-0.3, 0.6, 1.0);
@@ -657,7 +729,8 @@ export async function mountScroll(container, opts = {}) {
     [P, selloG, varillaG, tAlb, tNrm, tRgh, tPet1, tPet2] = await Promise.all([
       createParchment({ THREE, renderer, idle }).then((p) => { tick(); return p; }),
       loadGLB('models/sello.glb'), loadGLB('models/varilla.glb'),
-      loadTex('tex/mesa_albedo.jpg', true), loadTex('tex/mesa_normal.jpg', false), loadTex('tex/mesa_rough.jpg', false),
+      // CREMA: la mesa de nogal oscuro se cubre con un mantel de lino crema procedural (no se descargan sus texturas)
+      (tick(), null), (tick(), null), (tick(), null),
       loadTex('tex/petalo.png', true), loadTex('tex/petalo_2.png', true),
     ]);
   } catch (e) {
@@ -671,10 +744,12 @@ export async function mountScroll(container, opts = {}) {
 
   // ───────── mesa de nogal
   const aniso = renderer.capabilities.getMaxAnisotropy();
-  const TABLE = 3.2, REP = TABLE / 0.6;
+  const TABLE = 8, REP = TABLE / 0.6; // CREMA: mantel amplio, su borde se pierde del todo en la niebla crema (sin horizonte duro)
   for (const t of [tAlb, tNrm, tRgh]) if (t) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(REP, REP); t.rotation = Math.PI / 2; t.anisotropy = aniso; }
-  const tableMat = new THREE.MeshStandardMaterial({ map: tAlb, normalMap: tNrm, roughnessMap: tRgh, roughness: tRgh ? 1 : 0.45, metalness: 0,
-    color: tAlb ? '#b9a493' : '#3a2416', envMapIntensity: 0.13 });
+  // CREMA: mantel de lino crema (hilos de ~0.9 mm)
+  if (!tAlb) { tAlb = linenTex(); tAlb.repeat.set(TABLE / 0.12, TABLE / 0.12); tAlb.anisotropy = aniso; }
+  const tableMat = new THREE.MeshStandardMaterial({ map: tAlb, normalMap: tNrm, roughnessMap: tRgh, roughness: tRgh ? 1 : 0.9, metalness: 0,
+    color: tNrm ? '#b9a493' : '#f4ede2', envMapIntensity: 0.55 });
   if (tNrm) tableMat.normalScale.set(0.7, 0.7);
   const table = new THREE.Mesh(new THREE.PlaneGeometry(TABLE, TABLE), tableMat);
   table.rotation.x = -Math.PI / 2; table.receiveShadow = true; table.name = 'mesa';
@@ -1016,6 +1091,12 @@ export async function mountScroll(container, opts = {}) {
     const readDir = dirFrom(OPEN_TILT + 0.02, 0.05);
     fitPose(oPts, oCtr, readDir, 0.96, 0.97, 0, poses.final, readSafe);
     finalMode = 'sheet';
+    // CREMA (decisión n.º 9.4, «desde lejos no se ve»): en pantallas apaisadas la hoja completa sube hasta un 5 % para llegar a
+    // ~12 px de altura-x (la caja 3D es holgada: las varillas apenas rozan el borde; el papel y el texto quedan enteros)
+    if (aspect >= 0.85 && poses.final.pxPerM * XH < 12 && poses.final.pxPerM * XH >= 9.5) {
+      const k = Math.min(1.065, 12.3 / (poses.final.pxPerM * XH));
+      fitPose(oPts, oCtr, readDir, 0.96 * k, 0.97 * k, 0, poses.final, readSafe);
+    }
     if (poses.final.pxPerM * XH < 9.5) {
       // móvil: centrado en la columna de texto y con la hoja completa en alto (los CTA de abajo nunca la pisan) si así la
       // altura-x llega a 8 px; si no (apaisado bajo), solo la columna completa
@@ -1076,7 +1157,23 @@ export async function mountScroll(container, opts = {}) {
   // ───────── tamaño / calidad
   let pointScale = 800;
   let sizeKey = '';
+  // COMPAT-FLUIDEZ (hallazgos 15/32/45, memoria de GPU en teléfonos de 2–4 GB): con la sección lejos (main.js lo pide), los
+  // destinos del posproceso (MSAA HDR), el mapa de sombras y el búfer del lienzo quedan en 1×1 (≈ 30–60 MB menos en un
+  // teléfono); se recrean al volver, antes del primer cuadro (setActive(true) → gpuWake).
+  let gpuAsleep = false;
+  function gpuSleep() {
+    if (gpuAsleep || disposed || frozen || !ready) return false;
+    gpuAsleep = true;
+    try { post?.setSize(1, 1); key.shadow.map?.dispose(); key.shadow.map = null; renderer.setSize(1, 1, false); sizeKey = ''; } catch { /* */ }
+    return true;
+  }
+  function gpuWake() {
+    if (!gpuAsleep || disposed) return;
+    gpuAsleep = false;
+    try { applySize(); renderer.shadowMap.needsUpdate = true; } catch { /* */ }
+  }
   function applySize() {
+    if (gpuAsleep) { sizeKey = ''; return; } // (dormido: se mide al despertar)
     measure();
     dpr = Math.min(Q.dpr, window.devicePixelRatio || 1, DPR_CAP);
     // PERF-RETOMA: solo si cambió el tamaño o la densidad (renderer.setSize reasigna el búfer del lienzo aunque sea igual:
@@ -1102,6 +1199,7 @@ export async function mountScroll(container, opts = {}) {
     // PERF: en L3/L4 el mapa de sombras solo se redibuja cuando algo se mueve (ver renderFrame); al cambiar de nivel, una vez
     renderer.shadowMap.autoUpdate = !Q.lazySh; renderer.shadowMap.needsUpdate = true;
     vignetteEl.style.display = Q.post > 0 && post ? 'none' : 'block';
+    applyBg(!!(Q.post > 0 && post));
     dust.geometry.setDrawRange(0, Math.round(DUST * Q.parts));
     applySize();
     // UNIR: la pluma sigue la calidad (franjas de sombra, ondas, sombra en la mesa) sin cambiar de familia de materiales:
@@ -1139,7 +1237,19 @@ export async function mountScroll(container, opts = {}) {
     qLevel = target; recovered = 0; applyQuality();
   }
   const variantReady = { hdr: false, screen: false };
+  // FIX (modo de bajo consumo de iOS / ahorro de batería de Android: rAF limitado a 30 Hz con la GPU ociosa): con cuadros
+  // cuantizados a ~33 ms se exige 27 fps de media (no 45): antes el pergamino bajaba a L4 (DPR 1, sin posproceso, 15 % de
+  // partículas) para siempre sin ganar nada.
+  const dts = new Float32Array(64); let dtN = 0;
+  function cap30() {
+    const n = Math.min(dtN, 64);
+    if (n < 40) return false;
+    const a = Array.from(dts.subarray(0, n)).sort((x, y) => x - y);
+    const med = a[n >> 1], p90 = a[Math.floor(n * 0.9)];
+    return med > 0.031 && med < 0.0355 && p90 < 0.038;
+  }
   function adapt(dt) {
+    if (dt > 0 && dt < 0.2) dts[(dtN++) & 63] = dt;
     fpsAcc += dt; fpsN++;
     if (fpsAcc >= 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     if (forcedQ !== null || !ready) return;
@@ -1150,12 +1260,12 @@ export async function mountScroll(container, opts = {}) {
     // FIX: bajada rápida (tras ~1 s real): si sin contar el peor cuadro (un tirón aislado) no llega a 25 fps, baja 2 niveles
     if (fpsWin.t >= 1.0 && fpsWin.n >= 2 && qLevel < LEVELS.length - 1) {
       const robust = (fpsWin.n - 1) / Math.max(1e-3, fpsWin.t - fpsWin.max);
-      if (robust < 25) { drop(2); return; }
+      if (robust < (cap30() ? 22 : 25)) { drop(2); return; }
     }
     if (fpsWin.t >= 2.0) {
       const avg = fpsWin.n / fpsWin.t;
       fpsWin.t = 0; fpsWin.n = 0; fpsWin.max = 0;
-      if (avg < (upgrades > 0 && !lockUp ? 52 : 45) && qLevel < LEVELS.length - 1) {
+      if (avg < (cap30() ? 27 : upgrades > 0 && !lockUp ? 52 : 45) && qLevel < LEVELS.length - 1) {
         if (upgrades > 0 && qLevel === 0) lockUp = true;
         drop(1);
       } else if (avg > 50 && !opening) {
@@ -1209,7 +1319,7 @@ export async function mountScroll(container, opts = {}) {
   };
   if (coarse && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function' && !reduced) addEventListener('deviceorientation', onOrient, { passive: true });
 
-  let unsubBeat = null;
+  let unsubBeat = null, beatBars = 0;
   function bindMusic(m) {
     try { unsubBeat?.(); } catch { /* */ }
     unsubBeat = null; music = m || null;
@@ -1218,6 +1328,12 @@ export async function mountScroll(container, opts = {}) {
         beatPulse = Math.max(beatPulse, info?.strength ?? info?.accent ?? 0.6);
         // con el pergamino abierto, cada tiempo fuerte suelta un soplo de polvo de oro
         if (opened && info?.downbeat && !reduced && active && inView && Q.parts >= 0.5) glitterRain(Math.round(10 * Q.parts));
+        // IDEA (FIX ronda 1): cada 2 compases la luz recorre los nombres en pan de oro al compás de la canción (antes cada ~7 s
+        // por reloj): los nombres destacan a intervalos y el oro "canta" con la música
+        if (opened && info?.downbeat && !reduced && active && inView) {
+          beatBars++;
+          if (beatBars % 2 === 0 && sweepT < 0 && openClock > 3) { sweepT = 0; nextSweep = openClock + 30; }
+        }
       });
     } catch { /* */ }
   }
@@ -1686,6 +1802,7 @@ export async function mountScroll(container, opts = {}) {
     let goal = 'closed', st = 0.6, sdt = dts;
     const lifted = opened || (seq && seq.liftT >= 0);
     if (reduced) goal = lifted ? 'final' : 'closed';      // prefers-reduced-motion: sin viaje de cámara (cortes)
+    else if (soft) { goal = lifted ? 'final' : 'closed'; st = 1.6; sdt = dt; } // COMPAT-FLUIDEZ · modo suave: un acercamiento lento
     else if (opened || (seq && pace.back >= holdDur())) { goal = 'final'; st = 1.15 / Math.max(1, pace.backRate || 1); sdt = dt; }
     else if (seq && seq.writeT >= 0) { goal = 'read'; st = pace.wNat < 1.2 && seq.t - seq.writeT < 1.6 ? 0.95 : 0.62; sdt = dt; }
     else if (lifted) { goal = quill ? 'wide' : 'open'; st = TL.camOpen; }
@@ -1708,7 +1825,7 @@ export async function mountScroll(container, opts = {}) {
     cam.focus = damp(cam.focus, fd, 6, dt);
     // respiración de cámara + parallax del puntero/giroscopio (casi quietos mientras se lee)
     const calm = 1 - 0.8 * readK;
-    const breath = reduced ? 0 : (goal === 'seal' ? 0.35 : 1) * calm;
+    const breath = reduced ? 0 : (goal === 'seal' ? 0.35 : 1) * calm * (soft ? 0.35 : 1);
     pointer.sx = damp(pointer.sx, pointer.inside ? pointer.x : 0, 3, dt);
     pointer.sy = damp(pointer.sy, pointer.inside ? pointer.y : 0, 3, dt);
     const dist = cam.pos.distanceTo(cam.tgt);
@@ -1716,7 +1833,7 @@ export async function mountScroll(container, opts = {}) {
     camera.position.x += breath * (Math.sin(time * 0.37) * 0.0045 + Math.sin(time * 0.71 + 1.1) * 0.0015) * dist;
     camera.position.y += breath * Math.sin(time * 0.29 + 0.7) * 0.004 * dist;
     camera.position.z += breath * Math.sin(time * 0.23 + 2.1) * 0.003 * dist;
-    if (!reduced) {
+    if (!reduced && !soft) {
       const par = 1 - 0.7 * readK;
       _v.set(1, 0, 0).applyQuaternion(camera.quaternion).multiplyScalar(pointer.sx * dist * 0.035 * par);
       _v2.set(0, 1, 0).applyQuaternion(camera.quaternion).multiplyScalar(pointer.sy * dist * 0.022 * par);
@@ -2251,7 +2368,11 @@ export async function mountScroll(container, opts = {}) {
 
   const api = {
     open, reset, dispose,
-    setActive(on) { active = !!on; if (active) wake(); },
+    setActive(on) { active = !!on; if (active) { gpuWake(); wake(); } },
+    /** COMPAT-FLUIDEZ: libera los destinos de render (sección lejos); setActive(true) o wake() los recrean. */
+    sleep() { return gpuSleep(); },
+    wake() { gpuWake(); },
+    get asleep() { return gpuAsleep; },
     get isOpen() { return opening || opened; },
     get fps() { return fps; },
     /** PERF: siempre true cuando main.js recibe la API (mountScroll resuelve al terminar el montaje); el bucle no dibuja antes. */
@@ -2278,7 +2399,7 @@ export async function mountScroll(container, opts = {}) {
     get sequence() {
       return { phase, opening, opened, ctaShown: pace.ctaShown, done: opened, wt: +pace.wt.toFixed(4), wNat: +pace.wNat.toFixed(2),
         rate: +(seq && seq.writeT < 0 ? pace.mul : pace.wRateS).toFixed(2), back: +pace.back.toFixed(2), scroll: +scrollMax.toFixed(3),
-        finalMode, readK: +readK.toFixed(2), clean: +cleanAmt.toFixed(2) };
+        finalMode, readK: +readK.toFixed(2), clean: +cleanAmt.toFixed(2), sWrite: PACE.sWrite, sBack: PACE.sBack };
     },
     /** ESCENA · lugar reservado del tintero (mundo, sobre la mesa: y = 0) y su giro; se recalcula con el tamaño (responsive). */
     get inkwell() { return { position: inkSpot.pos.clone(), rotationY: inkSpot.rotY }; },

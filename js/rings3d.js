@@ -8,12 +8,14 @@
 //  · Coreografía: vuelo en arcos bezier → aproximación en espiral → enhebrado (el cruce dura < 20 ms y queda bajo
 //    el destello del clink, calculado con prueba de colisión real contra la malla) → vaivén amortiguado → reposo.
 // Contrato (SPEC): mountRings(container, { reducedMotion, onProgress, onClink }) → { intro, setScroll, sparkle, pause, resume, dispose, fps }
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+// FIX compatibilidad (iPhone con iOS < 16.4 sin import maps): three y sus addons se piden por URL completa (ESM de jsDelivr con
+// versión fija; cada addon importa three desde la MISMA URL /npm/three@0.170.0/+esm → una sola instancia), sin el importmap.
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/+esm';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm';
+import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/EffectComposer.js/+esm';
+import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/RenderPass.js/+esm';
+import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/ShaderPass.js/+esm';
+import { Pass, FullScreenQuad } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/Pass.js/+esm';
 
 const ASSETS = new URL('../assets/', import.meta.url);
 const asset = p => new URL(p, ASSETS).href;
@@ -47,6 +49,10 @@ function detectTier() {
   const ua = navigator.userAgent || '';
   const coarse = matchMedia?.('(pointer: coarse)').matches;
   const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (coarse && Math.min(screen.width, screen.height) < 900);
+  // FIX (iPhone): WebKit informa siempre 4 (o 2) núcleos y no tiene deviceMemory → todo iPhone salía 'low' (DPR 1 en
+  // pantallas de 3×, sin bloom, gema simplificada), incluso un 15 Pro. En iOS se parte de 'mid' y la adaptación baja si hace falta.
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (ios) return 'mid';
   const cores = navigator.hardwareConcurrency || 4, mem = navigator.deviceMemory || 4;
   if (mobile) return (cores <= 4 || mem <= 3) ? 'low' : 'mid';
   return 'high';
@@ -409,6 +415,19 @@ vec3 velvet(vec2 uv, float asp){
   col += vec3(0.026, 0.008, 0.005) * side * (0.6 + 0.4 * fold);
   return col * (0.9 + 0.1 * fib) * uBgDim;
 }
+// CREMA (decisión n.º 9.1): estudio de papel crema en espacio de pantalla (sRGB), como la puerta: charco de luz marfil detrás de
+// los anillos, borde apenas tostado y fibra de papel sutil (del mismo patrón horneado).
+vec3 creamBg(vec2 uv, float asp){
+  vec2 q = vec2((uv.x - 0.5) * asp, uv.y - 0.5) + uPar;
+  vec3 v = texture2D(tVelvet, vec2(q.x / 3.2 + 0.5, q.y / 1.3 + 0.5)).rgb;
+  vec2 dp = (uv - uPool) * vec2(asp, 1.0);
+  float d2 = dot(dp, dp);
+  float pool = exp(-d2 / (uPoolR * uPoolR * 1.6)), halo = exp(-d2 / (uPoolR * uPoolR * 7.0));
+  vec3 col = mix(vec3(0.905, 0.855, 0.765), vec3(0.945, 0.910, 0.845), halo);
+  col = mix(col, vec3(0.985, 0.965, 0.925), pool * 0.75 * uLift);
+  col *= 0.985 + 0.03 * (v.b - 0.5) + 0.012 * (v.r - 0.5);
+  return mix(vec3(0.95, 0.918, 0.852), col, uBgDim);
+}
 vec3 RRTAndODTFit(vec3 v){ vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
 vec3 aces(vec3 c){
   const mat3 IN = mat3(vec3(0.59719, 0.07600, 0.02840), vec3(0.35458, 0.90834, 0.13383), vec3(0.04823, 0.01566, 0.83777));
@@ -440,11 +459,11 @@ void main(){
   c.g = s0.g;
   c.b = texture2D(tDiffuse, vUv - off).b;
   float asp = uRes.x / uRes.y;
-  c += velvet(vUv, asp) * (1.0 - clamp(s0.a, 0.0, 1.0));
+  float a = clamp(s0.a, 0.0, 1.0);
   if (uBloom > 0.0) c += texture2D(tBloom, vUv).rgb * uBloom;
   vec2 fd = (vUv - uFlashPos) * vec2(asp, 1.0);
   float f2 = dot(fd, fd);
-  c += uFlash * (vec3(1.0, 0.86, 0.64) * (2.6 * exp(-f2 * 40.0) + 0.35 * exp(-f2 * 5.0)) + vec3(0.10, 0.07, 0.045));
+  vec3 fl = uFlash * (vec3(1.0, 0.86, 0.64) * (2.6 * exp(-f2 * 40.0) + 0.35 * exp(-f2 * 5.0)) + vec3(0.10, 0.07, 0.045));
 #ifdef NEUTRAL
   c = clamp(neutral(c * uExposure), 0.0, 1.0);
   c = mix(c, c * c * (3.0 - 2.0 * c), 0.35);
@@ -452,12 +471,23 @@ void main(){
   c = aces(c * uExposure);
 #endif
   c = srgb(c);
+  // CREMA: los anillos (alfa = cobertura, color premultiplicado) sobre el estudio crema; lo que brilla sin cobertura (polvo de oro,
+  // halo del bloom) tiñe el papel de oro viejo (sobre claro el brillo aditivo no se vería) con un núcleo más claro
+  vec3 bg = creamBg(vUv, asp);
+  float w = smoothstep(0.0, 0.06, a);
+  vec3 gw = c * (1.0 - w);
+  float gL = clamp(dot(gw, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+  vec3 bgG = bg * mix(vec3(1.0), vec3(0.72, 0.55, 0.30), clamp(gL * gL * 3.2 + gL * 0.5, 0.0, 0.7)) + gw * gw * 0.45;
+  c = mix(bgG, c + bg * (1.0 - a), w);
+  // destello del clink: luz que aclara (pantalla)
+  vec3 flD = clamp(srgb(clamp(fl * uExposure * 0.6, 0.0, 1.0)), 0.0, 1.0);
+  c = 1.0 - (1.0 - c) * (1.0 - flD);
   float v = smoothstep(1.05, 0.18, length(d * vec2(1.0 + 0.25 * (asp - 1.0), 1.12)));
-  c *= mix(1.0 - uVig, 1.0, v);
+  c *= mix(vec3(1.0) - uVig * vec3(0.30, 0.38, 0.5), vec3(1.0), v);   // CREMA: viñeta de papel tostado, no negra
   float g = h12(vUv * uRes + fract(uTime * 13.7) * 431.0) - 0.5;
   float lum = dot(c, vec3(0.299, 0.587, 0.114));
-  c += g * uGrain * (0.55 + 0.45 * (1.0 - lum));
-  c *= uDim;
+  c += g * uGrain * 0.6 * (0.55 + 0.45 * (1.0 - lum));
+  c = mix(bg, c, uDim);   // CREMA: al bajar, los anillos se funden en el crema (antes se apagaban a negro)
   gl_FragColor = vec4(c, 1.0);
 }`,
 };
@@ -909,6 +939,13 @@ export async function mountRings(container, opts = {}) {
       failIfMajorPerformanceCaveat: params.get('sw') !== '1' });
   } catch (e) { throw new Error('WebGL no disponible: ' + (e?.message || e)); }
   if (!renderer.capabilities.isWebGL2) { renderer.dispose(); throw new Error('Se requiere WebGL2'); }
+  // FIX (GPU sin render a coma flotante: drivers Android antiguos): todos los destinos (escena con MSAA, bloom, cubemap de las
+  // gemas, PMREM) son HalfFloat. Sin estas extensiones el framebuffer queda incompleto y el hero se veía vacío, sin error y con
+  // fps altos (ninguna red de seguridad actuaba). Se falla aquí → main.js usa la imagen de los anillos.
+  if (!(renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float'))) {
+    try { renderer.dispose(); renderer.forceContextLoss(); } catch {}
+    throw new Error('sin destinos de render en coma flotante');
+  }
   {
     const why = softwareRenderer(renderer);
     if (why && params.get('sw') !== '1') { try { renderer.dispose(); renderer.forceContextLoss(); } catch {} throw new Error('render por software (' + why + ')'); }
@@ -1139,6 +1176,9 @@ export async function mountRings(container, opts = {}) {
   composer.addPass(bloom);
   const finalPass = new ShaderPass(FINAL_SHADER);
   composer.addPass(finalPass);
+  // FIX (memoria de GPU en teléfonos): el pase final dibuja en pantalla; sin intercambio, el RenderPass escribe siempre en
+  // renderTarget1 y renderTarget2 (otro MSAA×4 HDR con profundidad, ≈ 42 MB en 390×844 y 105 MB en una tableta) nunca se asigna.
+  finalPass.needsSwap = false;
   const FU = finalPass.uniforms;
   FU.tBloom.value = bloom.texture;
   FU.tVelvet.value = velvetRT.texture;
@@ -1176,7 +1216,9 @@ export async function mountRings(container, opts = {}) {
     FU.uPoolR.value = portrait ? 0.28 : 0.34;
     FU.uRes.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
   }
+  let asleep = false;   // FIX · memoria: dormido = destinos de render y lienzo a 1×1 (ver sleep()/wake())
   function resize() {
+    if (asleep) return;
     const w = Math.max(1, container.clientWidth), h = Math.max(1, container.clientHeight);
     if (w === size.w && h === size.h && renderer.getPixelRatio() === dpr()) return;
     size.w = w; size.h = h;
@@ -1536,7 +1578,7 @@ export async function mountRings(container, opts = {}) {
     try { po.observe({ type: 'long-animation-frame', buffered: false }); } catch { po.observe({ type: 'longtask', buffered: false }); }
     disposables.push({ dispose: () => po.disconnect() });
   } catch {}
-  const setSamples = n => { for (const r of [composer.renderTarget1, composer.renderTarget2]) { if (r.samples !== n) { r.samples = n; r.dispose(); } } };
+  const setSamples = n => { const r = composer.readBuffer; if (r.samples !== n) { r.samples = n; r.dispose(); } }; // (el otro destino no se usa)
   function stepDown() {
     const push = (name, undo) => { quality.steps.push(name); quality.history.push('↓' + name); undos.push(undo); };
     if (dpr() > tier.dprMin + 0.01) { const prev = dprScale; dprScale *= 0.85; resize(); push('dpr→' + dpr().toFixed(2), () => { dprScale = prev; resize(); }); }
@@ -1554,8 +1596,11 @@ export async function mountRings(container, opts = {}) {
     api.fps = f.fps;
     const busy = (st.introStarted && st.introT < tClink + 1.5) || now < holdUntil || lastLong > t0 - 50;
     if (!adaptOn || busy || st.time <= 3) { f.low = 0; f.good = 0; return; }
-    if (f.fps < tier.targetFps) { f.low++; f.good = 0; }
-    else { f.low = Math.max(0, f.low - 1); f.good = f.fps >= tier.targetFps + 10 ? (f.good || 0) + 1 : 0; }
+    // FIX (modo de bajo consumo de iOS / ahorro de batería de Android: rAF limitado a 30 Hz con la GPU ociosa): con cuadros
+    // cuantizados a ~33 ms el objetivo pasa a 27 fps (antes bajaba la calidad para siempre sin ganar nada)
+    const target = cap30() ? Math.min(tier.targetFps, 27) : tier.targetFps;
+    if (f.fps < target) { f.low++; f.good = 0; }
+    else { f.low = Math.max(0, f.low - 1); f.good = f.fps >= target + 10 ? (f.good || 0) + 1 : 0; }
     if (f.low >= 2) {
       f.low = 0; f.good = 0;
       if (now - lastUndo < 8000) upLocked = true;
@@ -1568,11 +1613,21 @@ export async function mountRings(container, opts = {}) {
     }
   }
 
+  // FIX · tope de 30 Hz (bajo consumo): intervalos entre callbacks de rAF (los últimos 64)
+  const ivs = new Float32Array(64); let ivN = 0;
+  function cap30() {
+    const n = Math.min(ivN, 64);
+    if (n < 40) return false;
+    const a = Array.from(ivs.subarray(0, n)).sort((x, y) => x - y);
+    const med = a[n >> 1], p90 = a[Math.floor(n * 0.9)];
+    return med > 31 && med < 35.5 && p90 < 38;
+  }
   let raf = 0, last = 0, skip = 0;
   function loop(now) {
     raf = 0;
     if (!shouldRun()) { st.running = false; return; }
     raf = requestAnimationFrame(loop);
+    if (last && now - last < 200) ivs[(ivN++) & 63] = now - last;
     // poses analíticas: se puede avanzar con el tiempo real (solo se recorta un tirón grande)
     const dt = last ? Math.min(0.25, (now - last) / 1000) : 1 / 60;
     last = now;
@@ -1585,7 +1640,7 @@ export async function mountRings(container, opts = {}) {
     adapt(now);
     composer.render(dt);
   }
-  function shouldRun() { return ready && !st.paused && st.visible && st.pageVisible && !disposed; }
+  function shouldRun() { return ready && !st.paused && !asleep && st.visible && st.pageVisible && !disposed; }
   function schedule() {
     // (PERF: al reanudar se reinicia la ventana de fps; si no, el primer segundo medía el tiempo en pausa como "fps bajo")
     if (shouldRun() && !raf) { last = 0; st.running = true; fpsState.frames = 0; fpsState.t0 = performance.now(); raf = requestAnimationFrame(loop); }
@@ -1659,6 +1714,18 @@ export async function mountRings(container, opts = {}) {
     sparkle() { st.sparkT = st.time; },
     pause() { st.paused = true; schedule(); },
     resume() { st.paused = false; schedule(); },
+    /** FIX (memoria de GPU en teléfonos de 2–4 GB): con el hero lejos, suelta los destinos de render (escena MSAA HDR, bloom)
+     *  y el lienzo (todo a 1×1) sin perder modelos, entorno ni programas. wake() los recrea al volver (un cuadro). */
+    sleep() {
+      if (asleep || disposed) return;
+      asleep = true; schedule();
+      try { renderer.setSize(1, 1, false); composer.setPixelRatio(1); composer.setSize(1, 1); } catch {}
+    },
+    wake() {
+      if (!asleep || disposed) return;
+      asleep = false; size.w = 0; resize(); needsFrame = true; schedule();
+    },
+    get asleep() { return asleep; },
     dispose() {
       if (disposed) return;
       disposed = true;

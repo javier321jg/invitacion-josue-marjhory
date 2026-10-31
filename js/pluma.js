@@ -153,7 +153,7 @@ export async function createQuill(opts = {}) {
   let music = opts.music || null;
   const base = opts.base ?? new URL('../assets/models/', import.meta.url).href;
   let loader = opts.loader;
-  if (!loader) { const m = await import('three/addons/loaders/GLTFLoader.js'); loader = new m.GLTFLoader(); }
+  if (!loader) { const m = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm'); loader = new m.GLTFLoader(); }
   const [gp, gt] = await Promise.all([loader.loadAsync(base + 'pluma.glb'), loader.loadAsync(base + 'tintero.glb')]);
   const pluma = gp.scene.getObjectByName('Pluma');
   const tintero = gt.scene.getObjectByName('Tintero');

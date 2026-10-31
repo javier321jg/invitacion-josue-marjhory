@@ -313,8 +313,8 @@ function hasWebGL() {
   } catch { return false; }
 }
 
-async function fetchBlob(url, onP) {
-  const r = await fetch(url);
+async function fetchBlob(url, onP, signal) {
+  const r = await fetch(url, signal ? { signal } : undefined);
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   const total = +r.headers.get('content-length') || 0;
   if (!r.body || !total || !r.body.getReader) { const b = await r.blob(); onP(1); return new Blob([b], { type: 'video/mp4' }); }
@@ -610,10 +610,22 @@ void main(){ gl_FragColor = vec4((a(-uPx) + a(uPx) + a(vec2(uPx.x, -uPx.y)) + a(
     if (reduced) { st.dl.a = st.dl.b = 1; report(); return fallbackStatic(); }
     if (!hasWebGL()) { st.dl.a = st.dl.b = 1; report(); return fallbackStatic(); }
     try {
-      const [ba, bb] = await Promise.all([
-        fetchBlob(assets.reposo, p => { st.dl.a = p; report(); }),
-        fetchBlob(assets.abrir, p => { st.dl.b = p; report(); }),
-      ]);
+      // COMPAT-FLUIDEZ (hallazgo 28, red lenta: en 3G el lazo se podía tocar recién a los ~59 s y nada respondía): si a los
+      // 6 s (o después) la descarga de los dos videos (2.6 MB) proyecta más de 16 s, se corta y el lazo queda en su póster, tocable ya,
+      // con el desatado del póster (animación completa en calidad baja antes que esperar un minuto).
+      const ac = typeof AbortController === 'function' ? new AbortController() : null, tDl = performance.now();
+      let slowIv = 0;
+      const slow = new Promise((_, rej) => {
+        slowIv = setInterval(() => {
+          const el = performance.now() - tDl, p = (st.dl.a * .66 + st.dl.b * 1.94) / 2.6;
+          if (st.disposed || p >= 1) { clearInterval(slowIv); return; }
+          if (el > 6000 && el / Math.max(p, .02) > 16000) { clearInterval(slowIv); st.slowNet = true; try { ac?.abort(); } catch {} rej(new Error('red lenta: ' + Math.round(p * 100) + ' % en ' + Math.round(el / 1000) + ' s')); }
+        }, 500);
+      });
+      const [ba, bb] = await Promise.race([Promise.all([
+        fetchBlob(assets.reposo, p => { st.dl.a = p; report(); }, ac?.signal),
+        fetchBlob(assets.abrir, p => { st.dl.b = p; report(); }, ac?.signal),
+      ]), slow]).finally(() => clearInterval(slowIv));
       // iPhone/Safari (WebKit) no reproduce video desde blob: (MEDIA_ERR_SRC_NOT_SUPPORTED, código 4; verificado en WebKit):
       // los <video> usan las URL directas. La descarga de arriba solo da el progreso y deja los archivos en la caché HTTP.
       void ba; void bb;
@@ -643,7 +655,7 @@ void main(){ gl_FragColor = vec4((a(-uPx) + a(uPx) + a(vec2(uPx.x, -uPx.y)) + a(
       return 'gl';
     } catch (e) {
       if (st.disposed) return st.mode; // la puerta ya se quitó (skip/dispose) mientras cargaba: no es un fallo
-      console.warn('[gate] lazo en video no disponible, uso póster:', e?.message || e);
+      (st.slowNet ? console.info : console.warn)('[gate] lazo en video no disponible, uso póster:', e?.message || e);
       st.dl.a = st.dl.b = 1; report();
       stop();
       return fallbackStatic();
@@ -1166,7 +1178,10 @@ export async function mountGate(gateEl, opts = {}) {
   on(els.bow, 'pointerup', unpress); on(els.bow, 'pointercancel', unpress); on(els.bow, 'pointerleave', unpress);
   on(els.bow, 'click', e => { e.preventDefault(); trigger(true); });
   on(els.hint, 'click', () => trigger(true));
-  on(els.skip, 'click', e => { e.preventDefault(); trigger(false); });
+  // FIX (red lenta: el lazo tardaba hasta ~1 min en poder tocarse y nada respondía): «Entrar sin música» funciona siempre
+  // pasados 8 s, aunque la puerta siga cargando (la página ya sabe esperar a los anillos: foto provisional → 3D)
+  on(els.skip, 'click', e => { e.preventDefault(); trigger(false, now() - S.t0 > 8000); });
+  later(() => { if (!S.ready && !S.opening) els.skip.removeAttribute('aria-disabled'); }, 8000);
   on(els.bow, 'focus', () => { if (S.ready && !S.opening && els.bow.matches(':focus-visible')) player.setGlow(.8); });
   on(els.bow, 'blur', () => { if (!S.opening) player.setGlow(0); });
   // la puerta es modal: sin scroll por debajo

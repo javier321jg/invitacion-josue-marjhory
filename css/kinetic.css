@@ -40,8 +40,9 @@
 .kx-letters .kx-c, .kx-band .kx-c { position: relative; }
 .kx-letters .kx-c[data-kx]::after, .kx-letters .ch[data-kx]::after, .kx-band .kx-c[data-kx]::after {
   content: attr(data-kx); position: absolute; inset: 0; padding: inherit; pointer-events: none;
-  background: none; color: #fff3d8; -webkit-text-fill-color: #fff3d8;
-  text-shadow: 0 0 .14em rgba(255, 236, 196, .9), 0 0 .42em rgba(240, 204, 138, .55);
+  /* CREMA: destello de oro encendido (sobre papel claro un blanco haría desaparecer la letra) */
+  background: none; color: #b8914f; -webkit-text-fill-color: #b8914f;
+  text-shadow: 0 0 .06em rgba(255, 244, 214, .7), 0 0 .34em rgba(201, 162, 94, .55);
   opacity: 0;
 }
 /* PERF: con el anfitrión vivo, cada copia luminosa tiene su capa estable: el barrido anima solo su opacidad sin volver a
@@ -96,7 +97,8 @@
 
 .kx-band__scrim {
   position: absolute; inset: -34px -7% -26px; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(13, 8, 6, .72), rgba(13, 8, 6, .42) 55%, rgba(13, 8, 6, 0));
+  /* CREMA: velo de papel claro detrás de la frase (se lee sobre el crema y sobre las fotos) */
+  background: radial-gradient(closest-side, rgba(248, 241, 227, .9), rgba(248, 241, 227, .62) 55%, rgba(248, 241, 227, 0));
   opacity: .92;
 }
 .kx-band__fx {
@@ -141,14 +143,14 @@
 }
 .kx-f-serif {
   font-family: var(--kx-serif); font-style: italic; font-weight: 500; font-size: clamp(22px, 5.9vw, 33px); line-height: 1.18;
-  color: var(--kx-ivory); text-shadow: 0 1px 14px rgba(0, 0, 0, .75), 0 0 2px rgba(0, 0, 0, .5);
+  color: var(--kx-ivory); text-shadow: 0 0 14px rgba(248, 241, 227, .95), 0 0 3px rgba(248, 241, 227, .9);
 }
 .kx-f-serif.kx-long { font-size: clamp(19px, 4.9vw, 29px); }
 .kx-f-serif .kx-c { padding: .1em .02em .16em; margin: -.1em -.02em -.16em; }
 .kx-f-caps {
   font-family: var(--kx-sans); font-weight: 500; text-transform: uppercase;
   font-size: clamp(12.5px, 3.4vw, 15px); letter-spacing: .36em; text-indent: .36em; line-height: 1.6;
-  color: var(--kx-gold); text-shadow: 0 1px 10px rgba(0, 0, 0, .8);
+  color: var(--kx-gold); text-shadow: 0 0 10px rgba(248, 241, 227, .95);
 }
 
 /* Escritura caligráfica (sección "media"): máscara que avanza con la pluma */

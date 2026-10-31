@@ -19,7 +19,8 @@ const BASE = new URL('../assets/mapa/', import.meta.url);
 const QS = new URLSearchParams(location.search);
 const MQ_RM = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const FINE = typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches;
-const reducido = () => !!(MQ_RM?.matches || QS.has('reduced') || document.documentElement.classList.contains('reduced') || window.__inv?.shell?.reduced);
+// COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) el mapa se dibuja igual
+const reducido = () => !!((MQ_RM?.matches && !document.documentElement.classList.contains('soft-motion')) || QS.has('reduced') || document.documentElement.classList.contains('reduced') || window.__inv?.shell?.reduced);
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;

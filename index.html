@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Josué &amp; Marjhory · Cena de compromiso</title>
 <meta name="description" content="Josué y Marjhory te invitan a su cena de compromiso: jueves 24 de diciembre de 2026, 5:00 de la tarde, en Ahuayro — Pailahuantuna.">
-<meta name="theme-color" content="#120c09">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#f3ead9">
+<meta name="color-scheme" content="light">
 <!-- Vista previa al compartir (WhatsApp/Facebook): og:image y og:url deben ser URL ABSOLUTAS del dominio real.
      Al desplegar: python -E -P tools/manifest.py --base-url https://TU-DOMINIO/  (reescribe estas dos etiquetas) -->
 <meta property="og:type" content="website">
@@ -20,7 +20,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Josué &amp; Marjhory · Cena de compromiso">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23120c09'/%3E%3Ccircle cx='26' cy='34' r='13' fill='none' stroke='%23d6ba84' stroke-width='3.4'/%3E%3Ccircle cx='38' cy='34' r='13' fill='none' stroke='%23f2e5cb' stroke-width='3.4'/%3E%3Cpath d='M26 14l4 5-4 4-4-4z' fill='%23f2e5cb'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f3ead9'/%3E%3Ccircle cx='26' cy='34' r='13' fill='none' stroke='%239a7034' stroke-width='3.4'/%3E%3Ccircle cx='38' cy='34' r='13' fill='none' stroke='%235e4019' stroke-width='3.4'/%3E%3Cpath d='M26 14l4 5-4 4-4-4z' fill='%237d5a2b'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Great+Vibes&family=Montserrat:wght@400;500;600&family=Fondamento:ital@0;1&family=IM+Fell+English+SC&display=swap">
@@ -28,7 +28,8 @@
 <link rel="stylesheet" href="css/gate.css">
 <link rel="stylesheet" href="css/kinetic.css">
 <link rel="stylesheet" href="css/historia.css">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<!-- FIX compatibilidad: sin importmap (iOS < 16.4 no lo soporta). three se importa por URL completa (jsDelivr /+esm, versión fija) -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script type="module" src="js/main.js"></script>

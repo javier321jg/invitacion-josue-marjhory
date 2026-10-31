@@ -37,7 +37,8 @@ const XLINK = 'http://www.w3.org/1999/xlink';
 const BASE = new URL('../assets/escritura/', import.meta.url);
 const QS = new URLSearchParams(location.search);
 const MQ = matchMedia('(prefers-reduced-motion: reduce)');
-const reduced = () => MQ.matches || QS.has('reduced') || document.documentElement.classList.contains('reduced') || !!window.__inv?.shell?.reduced;
+// COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) se escribe igual, por trazos
+const reduced = () => (MQ.matches && !document.documentElement.classList.contains('soft-motion')) || QS.has('reduced') || document.documentElement.classList.contains('reduced') || !!window.__inv?.shell?.reduced;
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -68,6 +69,12 @@ const norm = s => s.normalize('NFC').replace(/\s+/g, ' ').trim();
 const ORO = [
   [0, '#fff9e4'], [0.15, '#fce9b4'], [0.3, '#f4d185'], [0.44, '#e4b55d'], [0.53, '#fff4d2'],
   [0.585, '#f6d890'], [0.68, '#d6a24a'], [0.8, '#ae7b2d'], [0.9, '#c89545'], [1, '#f2cf88'],
+];
+// CREMA (decisión n.º 9.1): sobre el papel crema (historia, momentos) el oro claro no se lee → oro en lámina PROFUNDO con un
+// brillo estrecho; sobre las fotos (#final, cielo de Ahuayro) sigue el oro champán.
+const ORO_HONDO = [
+  [0, '#93692f'], [0.15, '#a87f40'], [0.3, '#c49c58'], [0.44, '#8a6430'], [0.53, '#d4b273'],
+  [0.585, '#a87f40'], [0.68, '#7d5a2b'], [0.8, '#5e4019'], [0.9, '#6e4c1f'], [1, '#93692f'],
 ];
 // Filete oscuro bajo el oro (solo asoma por fuera: paint-order stroke) → legible sobre fotos claras.
 const FILETE = { color: '#2b1706', ancho: 22 };
@@ -141,7 +148,8 @@ class Pieza {
     const root = svg('svg', { class: 'esc-capa esc-svg', 'aria-hidden': 'true', focusable: 'false', width: 1, height: 1 });
     const defs = svg('defs', null, root);
     const grad = svg('linearGradient', { id: `esc${n}-oro`, gradientUnits: 'userSpaceOnUse', x1: 0, y1: -1000, x2: 0, y2: 350 }, defs);
-    for (const [o, c] of ORO) svg('stop', { offset: o, 'stop-color': c }, grad);
+    const enFoto = !!el.closest('#final');
+    for (const [o, c] of (enFoto ? ORO : ORO_HONDO)) svg('stop', { offset: o, 'stop-color': c }, grad);
     const gid = {};
     let gi = 0;
     for (const name in d.glifos) {
@@ -151,7 +159,7 @@ class Pieza {
     }
     const top = svg('g', {
       fill: `url(#esc${n}-oro)`, stroke: FILETE.color, 'stroke-width': FILETE.ancho, 'stroke-linejoin': 'round',
-      'stroke-opacity': 0.68, 'paint-order': 'stroke',
+      'stroke-opacity': enFoto ? 0.68 : 0.3, 'paint-order': 'stroke',
     }, root);
     this.gid = gid;
     this.words = d.palabras.map((w, wi) => {
@@ -910,13 +918,34 @@ if (!window.__inv) {
 }
 
 function arrancar() {
-  montarTodo();
+  // FIX (carga de la puerta en móvil medio): antes se montaban las 6 piezas al arrancar (163 KB de JSON, ~1 200 nodos SVG con
+  // 126 clipPath y un layout forzado por pieza: ~3 s de hilo con CPU ×4 mientras cargaba la puerta, el hilo dorado se trababa).
+  // Ahora cada pieza se monta al acercarse (1.5 pantallas antes) o, si no, en ratos ociosos cuando la invitación ya cargó lo
+  // pesado (__inv.whenReady). Hasta entonces queda el respaldo dorado de css/escritura.css.
+  const cerca = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { cerca.unobserve(e.target); montar(e.target); } }, { rootMargin: '150% 0px' })
+    : null;
+  const vigilar = (root = document) => {
+    const els = [...root.querySelectorAll('[data-escritura]')];
+    if (root instanceof Element && root.matches('[data-escritura]')) els.unshift(root);
+    for (const el of els) { if (piezas.has(el)) continue; if (cerca) cerca.observe(el); else montar(el); }
+  };
+  vigilar();
+  (async () => {
+    try { await Promise.race([window.__inv?.whenReady, new Promise(r => setTimeout(r, 60000))]); } catch { /* */ }
+    const ocio = () => new Promise(r => (typeof requestIdleCallback === 'function' ? requestIdleCallback(r, { timeout: 2500 }) : setTimeout(r, 250)));
+    for (const el of [...document.querySelectorAll('[data-escritura]')]) {
+      if (piezas.has(el)) continue;
+      await ocio();
+      if (!piezas.has(el)) { cerca?.unobserve(el); await montar(el)?.catch?.(() => null); }
+    }
+  })();
   const mo = new MutationObserver(ms => {
     for (const m of ms) {
       if (m.type === 'attributes') { if (m.target.dataset?.escritura) montar(m.target); continue; }
       for (const n of m.addedNodes) {
         if (n.nodeType !== 1 || n.classList?.contains('esc-capa') || n.classList?.contains('esc-sonda')) continue;
-        if (n.matches?.('[data-escritura]') || n.querySelector?.('[data-escritura]')) montarTodo(n);
+        if (n.matches?.('[data-escritura]') || n.querySelector?.('[data-escritura]')) vigilar(n);
       }
     }
   });

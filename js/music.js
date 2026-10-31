@@ -83,6 +83,9 @@ export const SCORE = { MELS, PLAN, GROUND, PADV };
 export const MUSIC_INFO = { bpm: BPM, secondsPerBeat: SPB, beatsPerCycle: 8, cycles: PLAN.length, loopFrom: LOOP_FROM,
   firstPassSeconds: PLAN.length * 8 * SPB, loopSeconds: (PLAN.length - LOOP_FROM) * 8 * SPB, sections: SECT };
 
+// FIX (móvil medio): la sala de los destellos con una respuesta al impulso de 1.8 s en táctil (3.6 s en escritorio): la mitad
+// de cálculo y de FFT síncrona al crear la reverb
+const HALL_IR = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? [1.8, 1.7] : [3.6, 3.2];
 // ───────────────────────────── Motor (cualquier BaseAudioContext) ─────────────────────────────
 export function createEngine(ctx, opt = {}) {
   const sr = ctx.sampleRate, only = opt.only ? new Set(opt.only) : null;
@@ -114,7 +117,7 @@ export function createEngine(ctx, opt = {}) {
     if (fxReady) return true;
     if (!force && !(cache['irHall@' + sr] && cache['irRoom@' + sr])) return false; // aún no: SFX secos (sin bloquear)
     fxReady = true;
-    const irH = take('irHall@' + sr, () => irData(3.6, 3.2, 6500, 1200, .024, 16)), irR = take('irRoom@' + sr, () => irData(.8, .55, 9000, 3000, .005, 24));
+    const irH = take('irHall@' + sr, () => irData(HALL_IR[0], HALL_IR[1], 6500, 1200, .024, 16)), irR = take('irRoom@' + sr, () => irData(.8, .55, 9000, 3000, .005, 24));
     chain(hallIn, conv(mk(irH)), F('highpass', 170, .6), F('highshelf', 5500, .7, -3), G(1, masterIn));
     chain(roomIn, conv(mk(irR)), F('highpass', 220, .6), G(.85, sfxD));
     return true;
@@ -335,7 +338,9 @@ export function createEngine(ctx, opt = {}) {
   const swellBuf = () => swb || (swb = { buf: mk(norm2(layer(3 * SPB + 2, (n, put) => { const f = svf(), h = svf(), up = 3 * SPB;
     for (let i = 0; i < n; i++) { const t = i / sr, e = t < up ? (t / up) ** 3 : Math.exp(-(t - up) / .7), w = n2(); f.run(w, gOf(5200), 2); h.run(w, gOf(9000), 1.4); put(i, e * (f.bp + .35 * h.hp) * (.8 + .2 * Math.abs(Math.sin(TAU * 6.5 * t))), (R() - .5) * .3); } }), .9)) });
   function fire(chs, t, lv, room, hall, dly) {
-    if ((room || hall) && !fxReady) warmFx();
+    // FIX: con la canción (lean) las reverbs nunca se crean aquí (ConvolverNode = FFT síncrona, caía en el toque del lazo):
+    // suenan secos hasta que tryFx las arma en un rato ocioso
+    if ((room || hall) && !fxReady && !lean) warmFx();
     const s = ctx.createBufferSource(), g = G(lv, sfxD); s.buffer = mk(chs); s.connect(g);
     if (room) g.connect(G(room, roomIn)); if (hall) g.connect(G(hall, hallIn)); if (dly) g.connect(G(dly, dIn));
     s.start(Math.max(0, t)); s.onended = () => g.disconnect(); return g;
@@ -368,7 +373,7 @@ export function createEngine(ctx, opt = {}) {
     paperUnroll: (t, sec = 2.4) => { sec = clamp(+sec || 2.4, .4, 8); fire(take('paper' + sec.toFixed(2), () => synth.paper(sec)), t, 1, .3, .08); duck(.3, sec, t); },
     chime: t => fire(take('chime', synth.chime), t, .6, .15, .5, .25),
     whoosh: t => { fire(take('whoosh', synth.whoosh), t, .45, .15, .25); duck(.2, .6, t); },
-    sparkle: t => { warmFx(); const g = G(1, sfxD); g.connect(G(.1, roomIn)); g.connect(G(.5, hallIn)); g.connect(G(.35, dIn)); sparkle(t, g, 1).addEventListener('ended', () => g.disconnect()); },
+    sparkle: t => { if (!lean) warmFx(); const g = G(1, sfxD); g.connect(G(.1, roomIn)); g.connect(G(.5, hallIn)); g.connect(G(.35, dIn)); sparkle(t, g, 1).addEventListener('ended', () => g.disconnect()); },
   };
 
   // Precarga en segundo plano (por presupuesto de ms): notas en orden de uso y efectos de sonido.
@@ -379,7 +384,7 @@ export function createEngine(ctx, opt = {}) {
       for (const m of [86, 90, 93, 98, 102, 105]) yield () => bell('glk', m);
       yield () => { cache.chime = cache.chime || synth.chime(); };
       for (const r of [48000, 44100]) {
-        yield () => take('irHall@' + r, () => irData(3.6, 3.2, 6500, 1200, .024, 16, r));
+        yield () => take('irHall@' + r, () => irData(HALL_IR[0], HALL_IR[1], 6500, 1200, .024, 16, r));
         yield () => take('irRoom@' + r, () => irData(.8, .55, 9000, 3000, .005, 24, r));
       }
       yield () => { cache.crack = cache.crack || synth.crack(); };
@@ -445,7 +450,8 @@ export function createMusic({ background = true, idle: idleGate = null } = {}) {
       try { pe = createEngine(new OfflineAudioContext(2, 1, 48000), { sfxOnly: true, store }); } catch { prepDone = true; return; }
       // los SFX de la apertura y del clink no esperan al permiso (si faltan, mejor un tirón breve ahora que congelar el clink);
       // el resto (reverbs, lacre, papel) sí
-      const step = () => { if (!pe.prewarm(4)) prepT = pe.jobsDone < ESSENTIAL ? ric(step) : idle(step); else { prepDone = true; pe = null; } };
+      // FIX: después del toque (started) también los esenciales esperan al permiso de main.js (no en pleno desatado)
+      const step = () => { if (!pe.prewarm(4)) prepT = pe.jobsDone < ESSENTIAL && !started ? ric(step) : idle(step); else { prepDone = true; pe = null; } };
       prepT = ric(step);
     });
   }
@@ -466,7 +472,7 @@ export function createMusic({ background = true, idle: idleGate = null } = {}) {
       // reverbs: después del toque (nunca dentro) y solo con las respuestas al impulso ya listas; respaldo a los 12 s
       const t0 = Date.now();
       const tryFx = () => { try { if (!eng || eng.warmFx(Date.now() - t0 > 12000)) return; } catch { return; } idle(tryFx); };
-      setTimeout(tryFx, 90);
+      idle(tryFx); // FIX: antes setTimeout 90 ms → la FFT de la reverb caía en pleno desatado del lazo
     }
     eng.mute.value = muted ? 0 : 1;
     document.addEventListener('visibilitychange', onVis);

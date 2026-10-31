@@ -4,12 +4,17 @@
    ========================================================================== */
 
 /* Respaldo (sin JS, sin SVG o mientras carga): el texto real en oro */
-[data-escritura]:not(.esc-on) { color: #e2c07a; }
+/* CREMA: sobre el papel crema, oro profundo; sobre la foto de Ahuayro (#final), oro champán */
+[data-escritura]:not(.esc-on) { color: #7d5a2b; }
+#final [data-escritura]:not(.esc-on) { color: #e2c07a; }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   [data-escritura]:not(.esc-on) {
-    background-image: linear-gradient(178deg, #fff3d2 0%, #f6dc9c 24%, #e2b766 46%, #fbecc2 56%, #c99645 70%, #9a6826 88%, #d9ae5f 100%);
+    background-image: linear-gradient(178deg, #93692f 0%, #a87f40 24%, #c49c58 40%, #8a6430 52%, #6e4c1f 70%, #5e4019 88%, #8a6430 100%);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+  #final [data-escritura]:not(.esc-on) {
+    background-image: linear-gradient(178deg, #fff3d2 0%, #f6dc9c 24%, #e2b766 46%, #fbecc2 56%, #c99645 70%, #9a6826 88%, #d9ae5f 100%);
   }
 }
 /* Los saltos de renglón se equilibran (p. ej. «Nos encantará / celebrar contigo» en 360–390 px) */

@@ -19,10 +19,13 @@ function deckle(seed = 7) {
   return `polygon(${pts.join(',')})`;
 }
 
-export function buildParchmentCard(T, { closed = false, reader = false, titleId = '' } = {}) {
+export function buildParchmentCard(T, { closed = false, reader = false, titleId = '', escritura = false } = {}) {
   const el = document.createElement('div');
   el.className = 'pcard' + (closed ? ' is-closed' : '') + (reader ? ' pcard--reader' : '');
   const [d0, d1] = T.details;
+  // FIX ronda 1 (idea): en la tarjeta de respaldo (teléfonos sin WebGL 2 / GPU débil) los nombres se escriben a mano en oro
+  // con js/escritura.js (trazos horneados en assets/escritura/tarjeta-*.json); main.js los dispara al abrir la tarjeta
+  const esw = id => (escritura ? ` data-escritura="${id}" data-escritura-modo="manual"` : '');
   el.innerHTML = `
     <div class="pcard__rod pcard__rod--top" aria-hidden="true"></div>
     <div class="pcard__wrap"><div class="pcard__clip">
@@ -30,7 +33,7 @@ export function buildParchmentCard(T, { closed = false, reader = false, titleId 
         <p class="pcard__kicker">${esc(T.kicker)}</p>
         <h3 class="pcard__title"${titleId ? ` id="${titleId}"` : ''}>${esc(T.title)}</h3>
         <div class="pcard__flourish" aria-hidden="true">${esc(T.flourish)}</div>
-        <p class="pcard__names"><span>${esc(T.names[0])}</span> <em>${esc(T.names[1])}</em> <span>${esc(T.names[2])}</span></p>
+        <p class="pcard__names${escritura ? ' pcard__names--esc' : ''}"><span${esw('tarjeta-nombre-1')}>${esc(T.names[0])}</span> <em${esw('tarjeta-nombre-y')}>${esc(T.names[1])}</em> <span${esw('tarjeta-nombre-2')}>${esc(T.names[2])}</span></p>
         <p class="pcard__verse">${T.verse.map(esc).join('<br>')}</p>
         <div class="pcard__details">
           <div><span>${esc(d0.label)}</span><strong>${esc(d0.value)}</strong><span>${esc(d0.sub)}</span></div>
@@ -192,8 +195,9 @@ function createLightbox(dlg, photos, { gsap, reduced, coupleLabel }) {
   async function open(i, fromEl) {
     opener = fromEl || null;
     setSrc(i);
+    // FIX compatibilidad (Safari < 15.4 sin <dialog>.showModal): se abre con el atributo open (style.css lo muestra igual)
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
     html.classList.add('is-locked');
-    dlg.showModal();
     await ready();
     if (gsap && !reduced && fromEl) {
       const a = fromEl.getBoundingClientRect(), b = img.getBoundingClientRect();
@@ -213,7 +217,7 @@ function createLightbox(dlg, photos, { gsap, reduced, coupleLabel }) {
     } else { setSrc(idx + d); }
     busy = false;
   }
-  function close() { dlg.close(); }
+  function close() { if (typeof dlg.close === 'function') dlg.close(); else { dlg.removeAttribute('open'); dlg.dispatchEvent(new Event('close')); } }
   dlg.addEventListener('close', () => {
     html.classList.remove('is-locked');
     if (gsap) gsap.set(img, { clearProps: 'all' });
@@ -297,7 +301,7 @@ export function initCountdown(root, iso, { reduced = false } = {}) {
     const m = Math.floor(s / 60); s -= m * 60;
     const v = { d: String(d).padStart(2, '0'), h: String(h).padStart(2, '0'), m: String(m).padStart(2, '0'), s: String(s).padStart(2, '0') };
     for (const k in v) set(k, v[k], !first && visible && !document.hidden);
-    if (m !== lastMin) { lastMin = m; sr.textContent = `Faltan ${d} días, ${h} horas y ${m} minutos.`; }
+    if (m !== lastMin) { lastMin = m; sr.textContent = `Faltan ${d} ${d === 1 ? 'día' : 'días'}, ${h} ${h === 1 ? 'hora' : 'horas'} y ${m} ${m === 1 ? 'minuto' : 'minutos'}.`; }
     first = false;
     setTimeout(tick, 1000 - (Date.now() % 1000) + 8);
   };

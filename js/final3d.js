@@ -30,7 +30,8 @@
 //             ?fgpu=1 (mide el tiempo de GPU en state().gpuMs) · ?fdbg=1..6 (cielo, profundidad, crestas, río, nube, sombra)
 
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
-const REDUCED = QS.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+// COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) el atardecer se anima igual
+const REDUCED = QS.has('reduced') || (matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('soft-motion'));
 const NO_GL = QS.has('nogl') || QS.get('final') === 'off';
 const ALLOW_SW = QS.get('sw') === '1';
 const COARSE = matchMedia('(pointer: coarse)').matches;
@@ -249,9 +250,14 @@ void main() {
   if (rv > 0.004) {
     vec3 refl = mix(vec3(1.0, 0.48, 0.42), vec3(1.0, 0.68, 0.34), side) * mix(0.55, 0.8, uDusk);
     float sh = 0.62 + 0.38 * vnoise(vec2(q.x * 70.0 - uTime * 0.45, q.y * 260.0));
-    // destellos alargados (ondas que reflejan el sol), lentos aguas abajo
-    float gl = smoothstep(0.74, 1.0, vnoise(vec2(q.x * 46.0 - uTime * 0.35, q.y * 900.0))) * smoothstep(0.3, 0.9, vnoise(vec2(q.x * 9.0 + uTime * 0.1, q.y * 40.0)));
-    vec3 rc = refl * (0.5 + 0.55 * tl) * sh + vec3(1.0, 0.88, 0.62) * gl * (0.5 + 0.7 * side);
+    // destellos (ondas que reflejan el sol), lentos aguas abajo. FIX: antes eran rayas horizontales idénticas en todo el lecho
+    // (se leían como líneas de barrido): ahora siguen el cauce (≈ 10° hacia abajo a la derecha), en px CSS (misma escala en
+    // toda pantalla), más cortos, con titileo propio por celda y solo en los canales con agua
+    vec2 rp = q * uRect.zw;
+    vec2 gc = vec2(dot(rp, vec2(0.985, 0.174)) / 26.0 - uTime * 0.35, dot(rp, vec2(-0.174, 0.985)) / 3.2);
+    float twk = max(0.0, 0.35 + 0.65 * sin(uTime * 2.1 + 6.2831 * hash(floor(gc * vec2(0.5, 1.0)))));
+    float gl = smoothstep(0.74, 1.0, vnoise(gc)) * twk * smoothstep(0.3, 0.9, vnoise(vec2(q.x * 9.0 + uTime * 0.1, q.y * 40.0))) * smoothstep(0.55, 0.9, rv);
+    vec3 rc = refl * (0.5 + 0.55 * tl) * sh + vec3(1.0, 0.88, 0.62) * gl * 0.68 * (0.5 + 0.7 * side);
     t = mix(t, rc, rv * 0.7);
   }
   // resplandor cálido del pueblo cuando se encienden sus luces
@@ -281,7 +287,8 @@ void main() {
     float vis = smoothstep(m - 0.03, m + 0.03, R);
     float edge = exp(-pow((R - m) / 0.022, 2.0)) * (1.0 - smoothstep(0.82, 1.0, uReveal)) * step(0.001, uReveal);
     float spark = smoothstep(0.82, 1.0, vnoise(sp * 0.35 + uTime * 3.0)) * 1.6;
-    col = mix(uBg, col, vis) + vec3(1.0, 0.72, 0.32) * edge * (0.75 + spark);
+    // CREMA: el paisaje se abre desde el papel crema con un filo de oro viejo (sobre claro el brillo aditivo no se veía)
+    col = mix(mix(uBg, col, vis), vec3(0.42, 0.25, 0.06), clamp(edge * 0.75, 0.0, 0.8)) + vec3(1.0, 0.8, 0.45) * edge * spark * 0.35;
   }
 
   vec3 o = toSRGB(col);
@@ -426,7 +433,7 @@ export async function mountFinal(section, opts = {}) {
   measure();
 
   // ---------- modo imagen (sin WebGL): la foto con degradados CSS; el atardecer CSS llega al entrar
-  const useImg = (why) => {
+  const useImg = (why, k0 = 0) => {
     if (why) console.info('[final] imagen:', why);
     section.classList.add('is-img'); section.classList.remove('is-gl');
     api.mode = 'img';
@@ -434,7 +441,7 @@ export async function mountFinal(section, opts = {}) {
     const tick = (now) => {
       raf = 0;
       if (!t0) t0 = now;
-      const k = reduced ? 1 : sstep(0, 1, (now - t0) / 6500);
+      const k = reduced ? 1 : Math.max(k0, sstep(0, 1, (now - t0) / 6500));
       section.style.setProperty('--fk', k.toFixed(3));
       api.k = k;
       if (k < 1) raf = requestAnimationFrame(tick);
@@ -455,7 +462,7 @@ export async function mountFinal(section, opts = {}) {
 
   // ---------- WebGL
   let THREE;
-  try { THREE = await import('three'); } catch (e) { return useImg('three.js no disponible'); }
+  try { THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/+esm'); /* FIX: sin import maps (iOS < 16.4) */ } catch (e) { return useImg('three.js no disponible'); }
   const canvas = document.createElement('canvas');
   canvas.className = 'finale__canvas';
   canvas.setAttribute('aria-hidden', 'true');
@@ -476,7 +483,7 @@ export async function mountFinal(section, opts = {}) {
     try { renderer?.dispose(); } catch {}
     return useImg(e?.message || 'sin WebGL');
   }
-  renderer.setClearColor(0x120c09, 1);
+  renderer.setClearColor(0xf3ead9, 1);   // CREMA
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   // texturas: escritorio o móvil según los píxeles que de verdad se ven
@@ -524,7 +531,7 @@ export async function mountFinal(section, opts = {}) {
     uReveal: { value: 0 }, uDrift: { value: 0 }, uSunAmt: { value: 0 }, uFlow: { value: reduced ? 0 : 1 },
     uSun: { value: new THREE.Vector2(0.75, 0.3) }, uStars: { value: 0 }, uGlow: { value: 0 },
     uShoot: { value: new THREE.Vector4(0, 0, 0, 0) }, uShootA: { value: 0 },
-    uSkyTop: { value: new THREE.Vector3(...skyTop) }, uBg: { value: new THREE.Vector3(...hexLin('#120c09')) },
+    uSkyTop: { value: new THREE.Vector3(...skyTop) }, uBg: { value: new THREE.Vector3(...hexLin('#f3ead9')) },   // CREMA
     uDebug: { value: +(QS.get('fdbg') || 0) },
   };
   const bgMat = new THREE.ShaderMaterial({ vertexShader: VERT_BG, fragmentShader: FRAG_BG, uniforms: U, depthTest: false, depthWrite: false });
@@ -774,7 +781,19 @@ export async function mountFinal(section, opts = {}) {
   io.observe(section);
   const onVis = () => { if (document.hidden) stop(); else kick(); };
   document.addEventListener('visibilitychange', onVis);
-  const onLost = e => { e.preventDefault(); stop(); };
+  // FIX (iOS: memoria / caída del proceso de GPU; Android: volver de otra app): al perder el contexto el lienzo quedaba encima,
+  // vacío, y la foto seguía oculta (.is-gl): bajo «J & M», la cuenta regresiva y el mapa quedaba un degradado azul liso.
+  // Ahora pasa a la foto con el atardecer en CSS, desde donde iba el atardecer del WebGL.
+  const onLost = e => {
+    e.preventDefault(); stop();
+    try { io.disconnect(); ro?.disconnect(); unBeat?.(); } catch {}
+    removeEventListener('resize', onResize); removeEventListener('pointermove', onMove); removeEventListener('deviceorientation', onTilt);
+    document.removeEventListener('visibilitychange', onVis);
+    try { canvas.remove(); } catch {}
+    const im = section.querySelector('.finale__photo');
+    if (im) { try { im.loading = 'eager'; } catch {} }
+    useImg('contexto WebGL perdido', clamp(+st.k || 0));
+  };
   canvas.addEventListener('webglcontextlost', onLost);
 
   // primer cuadro: el lienzo aparece sobre la <img> (que queda de respaldo)

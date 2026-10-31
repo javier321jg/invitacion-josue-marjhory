@@ -57,8 +57,9 @@ export function initDust(canvas, { reduced = false } = {}) {
   const spr = document.createElement('canvas'); spr.width = spr.height = 64;
   const sc = spr.getContext('2d');
   const g = sc.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, 'rgba(255,246,222,1)'); g.addColorStop(.18, 'rgba(246,222,170,.85)');
-  g.addColorStop(.45, 'rgba(214,186,132,.25)'); g.addColorStop(1, 'rgba(214,186,132,0)');
+  // CREMA: motas de oro viejo (un brillo claro aditivo no se ve sobre el papel crema)
+  g.addColorStop(0, 'rgba(214,176,104,.95)'); g.addColorStop(.18, 'rgba(190,148,82,.7)');
+  g.addColorStop(.45, 'rgba(168,127,64,.18)'); g.addColorStop(1, 'rgba(168,127,64,0)');
   sc.fillStyle = g; sc.fillRect(0, 0, 64, 64);
 
   const P = Array.from({ length: N }, () => spawn(true));
@@ -86,7 +87,7 @@ export function initDust(canvas, { reduced = false } = {}) {
     const sy = scrollY; scrollVel += ((sy - lastScroll) - scrollVel) * .2; lastScroll = sy;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = 'source-over';
     const t = now / 1000;
     for (const p of P) {
       if (!reduced) {
@@ -98,7 +99,7 @@ export function initDust(canvas, { reduced = false } = {}) {
       if (p.x < -.05) p.x = 1.04; if (p.x > 1.05) p.x = -.04;
       const a = (.25 + .75 * Math.pow(.5 + .5 * Math.sin(t * p.tw + p.ph), 2)) * (.35 + .65 * p.z);
       const s = p.r * 6;
-      ctx.globalAlpha = a * .9;
+      ctx.globalAlpha = a * .6;
       ctx.drawImage(spr, p.x * W - s / 2, p.y * H - s / 2, s, s);
     }
     ctx.globalAlpha = 1;

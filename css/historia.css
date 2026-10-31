@@ -20,10 +20,11 @@
 
 /* ---------- Oro de las letras ---------- */
 .story {
-  --h3d-gold: linear-gradient(172deg, #fff7df 0%, #f5dfaa 20%, #e2c182 38%, #c29651 55%, #e8cb8f 72%, #f8e6b8 84%, #c9a062 100%);
-  --h3d-gold-deep: linear-gradient(168deg, #fbe9bd 0%, #e7c487 26%, #c7994f 48%, #a9783a 62%, #dcb672 80%, #f1d69c 100%);
-  --h3d-gold-light: linear-gradient(90deg, #d9b878 0%, #f6e3b2 30%, #e6c88c 55%, #fbecc4 78%, #d6b475 100%);
-  --h3d-sheen: linear-gradient(105deg, transparent 38%, rgba(255, 252, 240, .95) 50%, transparent 62%);
+  /* CREMA: oro en lámina PROFUNDO sobre papel claro (tonos medios ≥ 3:1; el brillo es la pasada de luz) */
+  --h3d-gold: linear-gradient(172deg, #6e4c1f 0%, #8a6430 20%, #b48a48 34%, #7d5a2b 50%, #5e4019 64%, #93692f 80%, #6e4c1f 100%);
+  --h3d-gold-deep: linear-gradient(168deg, #5e4019 0%, #85602d 26%, #a87f40 44%, #6e4c1f 62%, #8a6430 80%, #5a3d17 100%);
+  --h3d-gold-light: linear-gradient(90deg, #6e4c1f 0%, #8a6430 30%, #7d5a2b 55%, #93692f 78%, #6e4c1f 100%);
+  --h3d-sheen: linear-gradient(105deg, transparent 38%, rgba(255, 246, 220, .9) 50%, transparent 62%);
 }
 .story__eyebrow {
   background: var(--h3d-sheen), var(--h3d-gold-light);
@@ -50,7 +51,7 @@
   -webkit-background-clip: text; background-clip: text; color: transparent;
   font-size: clamp(46px, 12vw, 58px); width: fit-content; margin-inline: auto;
 }
-.story__body { color: rgba(242, 229, 203, .86); }
+.story__body { color: var(--ivory-2, rgba(74, 52, 38, .86)); }
 @media (min-width: 900px) {
   .story .story__title .line, .story .story__copy .signature { margin-inline: 0; }
 }
@@ -67,7 +68,7 @@
 
 /* párrafo: palabra por palabra, de un destello dorado a la tinta marfil (tinta que se seca) */
 .h3d-text .story__body .h3d-w {
-  display: inline-block; opacity: 0; transform: translate3d(0, .55em, 0); filter: blur(5px); color: #f8e7bd;
+  display: inline-block; opacity: 0; transform: translate3d(0, .55em, 0); filter: blur(5px); color: #a87f40;
   transition: opacity .95s var(--ease), transform 1.25s var(--ease), filter 1.1s var(--ease), color 1.8s ease;
   transition-delay: calc(var(--bd, .35s) + var(--i) * 46ms), calc(var(--bd, .35s) + var(--i) * 46ms),
     calc(var(--bd, .35s) + var(--i) * 46ms), calc(var(--bd, .35s) + var(--i) * 46ms + .7s);

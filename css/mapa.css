@@ -30,28 +30,32 @@
 /* ---------- tarjeta ---------- */
 .mapa__card {
   position: relative; padding: 9px; border-radius: 22px;
+  /* CREMA (decisión n.º 9.1): marco de papel crema con filete de bronce (el mapa queda como objeto de noche dentro) */
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(214, 186, 132, .09), rgba(214, 186, 132, 0) 60%),
-    linear-gradient(180deg, #1d1510 0%, #140e0b 55%, #0f0a08 100%);
-  border: 1px solid rgba(214, 186, 132, .55);
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 252, 244, .9), rgba(255, 252, 244, 0) 60%),
+    linear-gradient(180deg, #f7f0e2 0%, #f1e7d4 55%, #eadcc2 100%);
+  border: 1px solid rgba(138, 100, 48, .55);
   box-shadow:
-    0 34px 70px -30px rgba(0, 0, 0, .92), 0 12px 30px -18px rgba(0, 0, 0, .7),
-    inset 0 1px 0 rgba(255, 240, 210, .14), inset 0 0 0 1px rgba(0, 0, 0, .35);
+    0 30px 60px -28px rgba(40, 28, 60, .6), 0 12px 28px -18px rgba(60, 40, 20, .45),
+    inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 0 0 1px rgba(255, 250, 238, .5);
   isolation: isolate;
 }
 /* filete dorado interior (doble línea del marco) */
 .mapa__card::before {
   content: ''; position: absolute; inset: 4px; border-radius: 18px; pointer-events: none;
-  border: 1px solid rgba(214, 186, 132, .16);
+  border: 1px solid rgba(138, 100, 48, .28);
 }
 .mapa__frame { position: relative; border-radius: 15px; }
 
 /* ---------- sin JS (o antes de montar): enlaces de texto ---------- */
 .mapa__map {
   display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 16px; border-radius: 15px;
-  color: var(--m-gold-hi); text-decoration: none; font-family: var(--m-sans); font-weight: 600; font-size: 11px;
-  letter-spacing: .2em; text-transform: uppercase; background: rgba(214, 186, 132, .08); border: 1px solid rgba(214, 186, 132, .3);
+  color: #7d5a2b; text-decoration: none; font-family: var(--m-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: .2em; text-transform: uppercase; background: rgba(138, 100, 48, .08); border: 1px solid rgba(138, 100, 48, .35);
 }
+/* CREMA: sin JS la info va sobre el marco crema → oro profundo */
+.mapa:not(.is-on) .mapa__lugar { background-image: linear-gradient(176deg, #8a6430 10%, #6e4c1f 55%, #5e4019 100%); }
+.mapa:not(.is-on) .mapa__cuando { color: #7d5a2b; }
 .mapa__nojs::after { content: ' \2197'; }
 .mapa__info { padding: 14px 10px 6px; text-align: center; }
 .mapa__lugar {
@@ -70,7 +74,7 @@
   position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; padding: 8px 12px;
   border-radius: 14px; text-decoration: none; text-align: center; overflow: hidden; isolation: isolate;
   font-family: var(--m-sans); font-weight: 600; font-size: 10.5px; line-height: 1.25; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--m-gold-hi); background: rgba(214, 186, 132, .07); border: 1px solid rgba(214, 186, 132, .5);
+  color: #7d5a2b; background: rgba(255, 251, 242, .75); border: 1px solid rgba(138, 100, 48, .5);   /* CREMA */
   transition: transform .45s var(--m-ease), background .3s, border-color .3s, box-shadow .45s var(--m-ease), color .3s;
 }
 .mapa__btn svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -87,7 +91,7 @@
 .mapa.is-on .mapa__btn--oro::after { animation: mapaBrillo 4.2s cubic-bezier(.7, 0, .2, 1) 1.5s infinite; }
 @keyframes mapaBrillo { 0% { transform: translateX(-120%); } 50%, 100% { transform: translateX(120%); } }
 @media (hover: hover) and (pointer: fine) {
-  .mapa__btn:hover { transform: translateY(-2px); background: rgba(214, 186, 132, .16); border-color: rgba(214, 186, 132, .85); color: #fff4dc; }
+  .mapa__btn:hover { transform: translateY(-2px); background: #fffaf0; border-color: rgba(125, 90, 43, .85); color: #5e4019; }
   .mapa__btn--oro:hover { background: linear-gradient(135deg, #fff2d6 0%, #ecd09c 32%, #c49a60 66%, #f3dbab 100%); color: #1d1109;
     box-shadow: 0 20px 40px -16px rgba(214, 186, 132, .95), inset 0 1px 0 rgba(255, 255, 255, .75); }
 }
@@ -101,9 +105,9 @@
 /* atribución (siempre visible) */
 .mapa__atrib {
   margin: 8px 4px 0; font-family: var(--m-sans); font-weight: 500; font-size: 9px; line-height: 1.4; letter-spacing: .02em;
-  color: rgba(242, 229, 203, .62); text-align: right;
+  color: rgba(74, 52, 38, .74); text-align: right;
 }
-.mapa__atrib a { color: inherit; text-decoration: underline; text-decoration-color: rgba(214, 186, 132, .45); text-underline-offset: 2px; }
+.mapa__atrib a { color: inherit; text-decoration: underline; text-decoration-color: rgba(138, 100, 48, .5); text-underline-offset: 2px; }
 
 /* ==========================================================================
    Con JS (js/mapa.js añade .is-on y construye el escenario dentro de .mapa__map)
@@ -501,3 +505,19 @@
   #final .finale__info > .finale__back { grid-area: volver; margin: 0; align-self: start; }
   #final .finale__info > .mapa { grid-area: mapa; margin: 0; width: 100%; --mapa-max-h: calc(100svh - 112px); }
 }
+
+/* FIX compatibilidad (Safari < 15.4, Chrome < 108: sin unidades svh). Las variables con svh quedaban inválidas al usarse
+   (el mapa perdía su tope de alto y empujaba «Volver al inicio» fuera de la pantalla): mismas medidas con vh. */
+@supports not (height: 1svh) {
+  .mapa { --mapa-max-h: 50vh; }
+  @media (min-width: 900px) { .mapa { --mapa-max-h: 54vh; } }
+  #final .mapa { --mapa-max-h: max(170px, calc(90vh - 404px)); }
+  @media (min-width: 720px) { #final .mapa { --mapa-max-h: max(200px, calc(87vh - 424px)); } }
+  @media (orientation: portrait) and (max-height: 640px) { #final.finale .mapa { --mapa-max-h: max(118px, calc(100vh - 440px)); } }
+  @media (max-height: 520px) and (orientation: landscape) and (min-width: 560px) {
+    #final .finale__info .flip { --fh: clamp(42px, 13vh, 58px); }
+    #final .finale__info > .mapa { --mapa-max-h: calc(100vh - 112px); }
+  }
+}
+/* FIX: el enlace de atribución «OpenStreetMap» medía 71×10 px: área táctil de ~44 px sin cambiar su aspecto */
+.mapa__atrib a { display: inline-block; padding: 14px 6px; margin: -14px -6px; }
