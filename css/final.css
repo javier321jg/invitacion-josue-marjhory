@@ -92,7 +92,7 @@
   content: ''; position: absolute; left: 50%; top: max(6svh, 40px); width: min(1100px, 140vw); height: min(60svh, 520px);
   transform: translateX(-50%); pointer-events: none; z-index: -1;
   background: radial-gradient(closest-side, rgba(16, 14, 52, .42), rgba(16, 14, 52, .2) 55%, rgba(16, 14, 52, 0));
-  opacity: calc(1 - var(--fk) * .6);
+  opacity: calc(1 - var(--fk) * .35);
 }
 
 /* cuenta regresiva: tarjetas de vidrio claro, números marfil → oro (se reutiliza el marcado de shell-ui.js) */

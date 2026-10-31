@@ -1,27 +1,33 @@
 // FINAL · Ahuayro al atardecer (SPEC, decisión del usuario n.º 6). Módulo auto-montable: no lo llama main.js.
 //
-// La foto del usuario (assets/photos/ahuayro.jpg, preparada por tools/final/preparar_ahuayro.py) llena la sección como un
-// paisaje vivo en WebGL:
+// La foto del usuario (assets/photos/ahuayro.jpg, la PRINCIPAL; derivados con tools/final/preparar_ahuayro.py) llena la
+// sección como un paisaje vivo en WebGL:
 //   · PARALLAX DE PROFUNDIDAD con el mapa de profundidad (cielo lejos, montañas, valle y primer plano): mouse o giroscopio y
-//     el scroll (acercamiento suave + las capas cercanas suben más rápido). Dos pasadas de punto fijo → sin desgarros.
+//     el scroll (acercamiento suave anclado al pueblo). Dos pasadas de punto fijo → sin desgarros; el lecho del río toma la
+//     profundidad de sus orillas (no se desliza).
 //   · Cielo vivo: la franja de cielo "rellenada" detrás de las montañas se desliza despacio (nubes que se mueven SOLO en el
-//     cielo, detrás de las crestas) y respira con un flujo leve. Arriba de la foto el cielo se extiende (espejo + degradado).
-//   · Transición mágica desde el fondo oscuro de la página: el paisaje se revela de lejos hacia cerca (primero el cielo,
-//     luego las montañas, el valle y el primer plano) con un filo de luz dorada.
-//   · LA SORPRESA: al quedar la sección en pantalla, el día pasa a un ATARDECER DORADO (cielo en degradado oro→rosa→violeta→
-//     índigo, nubes encendidas desde abajo, sol que baja tras la cresta, luz rasante en las crestas, valle en penumbra azul,
-//     lecho del río con reflejos de oro) y las LUCES DEL PUEBLO (posiciones de techos detectadas en la foto) se encienden una a
-//     una y titilan; luciérnagas y polvo de oro.
-// El progreso del atardecer = máx(tiempo desde que se ve la sección, scroll dentro de la sección), con velocidad acotada.
-// Al salir de la sección hacia arriba vuelve al día y la sorpresa se repite al volver.
+//     cielo; pegado a las crestas casi no se mueven). Arriba de la foto (móvil vertical) el cielo SIGUE: el mismo cielo
+//     ampliado (nubes más grandes) que se funde con el azul del cenit, sin espejo visible.
+//   · Transición desde el fondo oscuro de la página: el cielo emerge de la oscuridad con chispas de oro que suben hacia ella;
+//     el paisaje se revela de lejos hacia cerca con un filo de luz dorada.
+//   · LA SORPRESA: cuando la sección queda fija se escriben a mano en oro «J & M» y luego «Nos encantará celebrar contigo»
+//     (js/escritura.js en modo manual, ver pluma()) y el día pasa a un ATARDECER DORADO que se extiende desde el sol: cielo
+//     oro→rosa→violeta→índigo, nubes con volumen encendidas en oro y rosa, sol que baja hasta la cresta con rayos, luz rasante
+//     en las crestas, bruma lavanda entre cordilleras (sin cian), la sombra SUBE desde el valle y las alturas guardan la última
+//     luz, el río se vuelve una cinta de oro con destellos, las LUCES DEL PUEBLO se encienden una a una y titilan (con su
+//     resplandor cálido), luciérnagas, polvo de oro, las primeras estrellas y, al final, una estrella fugaz.
+// El progreso del atardecer = máx(tiempo desde que la sección queda fija, scroll dentro de la sección), con velocidad acotada.
+// Si la sección sale por abajo (el usuario vuelve arriba) vuelve al día y la sorpresa (y la escritura) se repite al regresar.
 // Sin WebGL / ?nogl=1 / render por software → la <img> con degradados CSS (.finale.is-img). Movimiento reducido → sin parallax,
-// sin deriva de nubes ni partículas; el atardecer llega con un fundido corto.
-// Solo dibuja cuando la sección es visible y la pestaña también; calidad automática (DPR) si baja el fps.
+// sin deriva ni partículas; el atardecer y el texto llegan con fundidos cortos.
+// Solo dibuja cuando la sección es visible y la pestaña también; calidad automática (DPR, polvo, desenfoque del vidrio) que
+// ignora el arranque, baja si el fps cae y vuelve a subir si sobra.
 //
-// API: window.__inv.final = { mode, fps, quality, k, reveal, ready, replay(), dispose(),
-//                             debug: { setK(v|null), setReveal(v|null), time(), state() } }
+// API: window.__inv.final = { mode: 'gl'|'img', fps, quality, k, reveal, ready, replay(), dispose(),
+//                             debug: { setK(v|null), setReveal(v|null), shoot(), time(), state() } }
 // Parámetros: ?nogl=1 · ?reduced=1 · ?sw=1 (permite render por software) · ?final=off (fuerza la imagen) ·
-//             ?fk=0..1 (fija el atardecer) · ?fr=0..1 (fija el revelado) · ?fq=0..2 (fija la calidad)
+//             ?fk=0..1 (fija el atardecer) · ?fr=0..1 (fija el revelado) · ?fq=0..2 (fija la calidad) ·
+//             ?fgpu=1 (mide el tiempo de GPU en state().gpuMs) · ?fdbg=1..6 (cielo, profundidad, crestas, río, nube, sombra)
 
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
 const REDUCED = QS.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;

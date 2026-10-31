@@ -278,7 +278,10 @@ a { color: inherit; }
 /* ==========================================================================
    EL PERGAMINO
    ========================================================================== */
-.parch { position: relative; height: 260vh; }
+/* ESCENA: recorrido fijo más largo (se abre solo al fijarse; el scroll guía la escritura con tope de velocidad) + el alargue del
+   freno (--parch-extra, main.js) mientras la secuencia no termina. Sin anclaje de scroll: alargar no mueve lo que se ve. */
+.parch { position: relative; height: calc(520vh + var(--parch-extra, 0px)); overflow-anchor: none; }
+html.reduced .parch { height: calc(230vh + var(--parch-extra, 0px)); }
 .parch__sticky { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .stage--scroll {
   background:
@@ -286,7 +289,7 @@ a { color: inherit; }
     radial-gradient(ellipse 100% 80% at 50% 50%, #24170f 0%, #150e0a 60%, #0b0705 100%);
 }
 .stage--scroll.is-live { cursor: pointer; }
-.parch__fade { position: absolute; left: 0; right: 0; height: 22%; pointer-events: none; z-index: 1; }
+.parch__fade { position: absolute; left: 0; right: 0; height: 22%; pointer-events: none; z-index: 1; transition: opacity .45s ease; }
 .parch__fade--top { top: 0; height: 30%; background: linear-gradient(180deg, var(--bg) 0%, rgba(18, 12, 9, .72) 30%, rgba(18, 12, 9, .25) 66%, rgba(18, 12, 9, 0) 100%); }
 .parch__fade--bottom { bottom: 0; height: 26%; background: linear-gradient(0deg, var(--bg) 0%, rgba(18, 12, 9, .7) 28%, rgba(18, 12, 9, 0) 100%); }
 .parch__head {
@@ -331,7 +334,12 @@ a { color: inherit; }
   position: absolute; z-index: 3; left: var(--gut); right: var(--gut); bottom: calc(22px + var(--safe-b));
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
 }
-.parch__ctas[hidden] { display: none; }
+/* ESCENA: ocultos pero maquetados (main.js mide su zona para que el encuadre final nunca quede debajo) */
+.parch__ctas[hidden] { visibility: hidden; pointer-events: none; }
+/* mientras se lee el pergamino, el grano y la viñeta globales del sitio no tapan el texto */
+.fx-grain, .fx-vignette { transition: opacity .9s ease; }
+html.parch-reading .fx-grain { opacity: .14; }
+html.parch-reading .fx-vignette { opacity: .25; }
 .cta {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; text-align: center;
   min-height: 64px; padding: 10px 6px; border-radius: 16px; cursor: pointer; text-decoration: none;
@@ -369,6 +377,16 @@ a { color: inherit; }
     content: ''; display: block; height: 1px; margin: 0 8px 6px;
     background: linear-gradient(90deg, transparent, var(--gold-line), transparent);
   }
+}
+/* ESCENA: apaisado bajo (teléfono girado): columna compacta a la derecha (abajo se comía un cuarto del alto y el texto) */
+@media (max-height: 520px) and (orientation: landscape) and (min-width: 560px) {
+  .parch__ctas {
+    left: auto; right: max(3vw, 14px); top: 50%; bottom: auto; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: stretch; width: 196px; gap: 8px;
+  }
+  .cta { flex-direction: row; justify-content: flex-start; min-height: 42px; padding: 0 16px; border-radius: 999px; font-size: 9.5px; letter-spacing: .18em; gap: 9px; }
+  .cta span { white-space: nowrap; }
+  .cta svg { width: 16px; height: 16px; }
 }
 
 /* Pergamino en HTML (fallback sin WebGL y tarjeta "Leer texto") */

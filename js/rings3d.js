@@ -1580,8 +1580,10 @@ export async function mountRings(container, opts = {}) {
     if (!st.introStarted && (skip++ & 1) && !needsFrame) return;
     needsFrame = false;
     update(dt);
-    composer.render(dt);
+    // PERF-RETOMA: la calidad se ajusta ANTES de dibujar: un cambio de DPR redimensiona (y borra) el lienzo; hecho después
+    // del dibujo, ese cuadro se mostraba vacío (parpadeo de los anillos en cada bajada/subida; a 2–5 fps se veía medio segundo)
     adapt(now);
+    composer.render(dt);
   }
   function shouldRun() { return ready && !st.paused && st.visible && st.pageVisible && !disposed; }
   function schedule() {

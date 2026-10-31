@@ -28,6 +28,19 @@
 // PERF-RETOMA: los lienzos también suben por franjas; el armado de la escena tras el lazo cede el hilo 3 veces (await idle());
 // progreso fino 0.80→0.88 durante la subida (main.js abandona el montaje solo si el progreso no avanza en 30 s).
 // Si ESCENA añade armado síncrono pesado, que lo corte igual con `await idle()` (el bucle no corre hasta `ready`).
+//
+// ESCENA (decisión n.º 5: el pergamino se LEE al navegar):
+//  · Ritmo = max(tiempo, scroll): main.js pasa setScrollProgress(s 0..1 del recorrido fijo); la secuencia (sello → lazo → elevar →
+//    desenrollar → escribir → alejar → CTAs) sigue al tiempo real y, si el scroll va por delante, acelera con tope (apertura ≤ 3.2×,
+//    escritura ≤ 6×, alejar ≤ 2.5×). Nunca retrocede: al volver arriba sigue escrito. La escritura dura P.writing.seconds (21.9 s).
+//  · Cámara de lectura: se acerca a la columna de texto y la recorre renglón a renglón (getFocus, suavizado crítico); cuanto más
+//    rápido se navega, más se abre el plano. Al terminar se aleja al encuadre final legible (escritorio: hoja completa; móvil
+//    vertical: la columna centrada), respetando la zona de los CTA (setSafeArea({ top, bottom, left, right })).
+//  · Legible: luz de lectura cálida y pareja (direccional sin sombra + vela clave más frontal: sin la banda oscura bajo el rollo),
+//    zona "limpia" sobre la columna en el posproceso (sin sepia/grano/viñeta/bloom/DOF), polvo y chispas ocultos delante del
+//    texto y pétalos solo a los lados.
+//  · Tintero: lugar reservado en la mesa (api.inkwell) y gancho attachQuill(quill) para js/pluma.js (lo cablea UNIR).
+//  · prefers-reduced-motion: sin viaje de cámara (cortes con fundido) y el texto aparece con un fundido corto.
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -169,6 +182,12 @@ const TL_REDUCED = {
   unrollDelay: 0.55, unrollDur: 1.2, writeDelay: 0.95, writeDur: 1.3, petals: 99, chime: 0.6, done: 1.3,
   camSeal: 0.22, camMedium: 0.3, camOpen: 0.4,
 };
+// ESCENA · ritmo de la secuencia guiado por el scroll (fracciones del recorrido fijo que main.js pasa con setScrollProgress)
+// 0 → sOpen: sello, lazo, elevar, desenrollar · sOpen → sWrite: escritura · sWrite → sBack: la cámara se aleja · resto: CTAs.
+// Topes de velocidad (s naturales por s reales) y tau = segundos de retraso que añaden +1× de velocidad.
+const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 3.2, writeCap: 6, backCap: 2.5, tau: 0.85, openEst: 7.6 };
+const READ_HOLD = 0.7;   // s (naturales) con todo escrito antes de alejarse
+const BACK_DUR = 2.6;    // s (naturales) del alejamiento final; los CTA aparecen al 55 %
 
 // ───────────────────────────── shaders ─────────────────────────────
 const VS_FS = /* glsl */`varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -202,6 +221,8 @@ const FS_COMPOSITE = /* glsl */`
 uniform sampler2D tScene, tBlur, tBloom, tBloom2, tDepth;
 uniform float uDof, uFocus, uFocusRange, uNear, uFar, uBloom, uSepia, uVig, uGrain, uTime, uExpo, uFade, uWarm, uFxaa;
 uniform vec2 uRes;
+// ESCENA: zona "limpia" (la columna de texto proyectada en pantalla, en UV): sin DOF, bloom, sepia, viñeta ni grano al leer
+uniform vec4 uClean; uniform vec2 uCleanFeather; uniform float uCleanAmt;
 varying vec2 vUv;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float lumT(vec3 c){ float l = dot(c, vec3(0.299, 0.587, 0.114)); return l / (1.0 + l); }
@@ -222,13 +243,16 @@ vec3 fxaa(vec2 uv){
   return (lB < lMin || lB > lMax) ? a : b;
 }
 void main(){
-  vec3 col = uFxaa > 0.5 ? fxaa(vUv) : texture2D(tScene, vUv).rgb;
+  vec2 ce = smoothstep(uClean.xy - uCleanFeather, uClean.xy, vUv) * (1.0 - smoothstep(uClean.zw, uClean.zw + uCleanFeather, vUv));
+  float keep = 1.0 - uCleanAmt * ce.x * ce.y; // 0 sobre la columna de texto mientras se lee
+  // (sin FXAA sobre el texto: los trazos finos vienen filtrados de su textura y FXAA los agrisaba: −30 % de contraste)
+  vec3 col = uFxaa > 0.5 && keep > 0.5 ? fxaa(vUv) : texture2D(tScene, vUv).rgb;
   if (uDof > 0.001) {
     float z = -perspectiveDepthToViewZ(texture2D(tDepth, vUv).x, uNear, uFar);
-    float coc = smoothstep(0.14, 1.0, abs(z - uFocus) / uFocusRange) * uDof;
+    float coc = smoothstep(0.14, 1.0, abs(z - uFocus) / uFocusRange) * uDof * keep;
     col = mix(col, texture2D(tBlur, vUv).rgb, coc);
   }
-  col += (texture2D(tBloom, vUv).rgb * 0.6 + texture2D(tBloom2, vUv).rgb * 0.8) * uBloom;
+  col += (texture2D(tBloom, vUv).rgb * 0.6 + texture2D(tBloom2, vUv).rgb * 0.8) * uBloom * keep;
   col *= uExpo;
 #ifdef TONE_MAPPING
   col = toneMapping(col);
@@ -236,28 +260,37 @@ void main(){
   // gradación sepia (película antigua) + calidez en las sombras
   float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
   vec3 sep = l * vec3(1.12, 0.93, 0.68) + vec3(0.018, 0.010, 0.0);
-  col = mix(col, sep, uSepia);
+  col = mix(col, sep, uSepia * keep);
   col = mix(col, col * vec3(1.03, 1.0, 0.95), uWarm);
   // viñeta independiente del aspecto
   vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;
   float rr = length(q) / length(vec2(0.5 * uRes.x / uRes.y, 0.5));
-  col *= 1.0 - uVig * smoothstep(0.32, 1.08, rr);
+  col *= 1.0 - uVig * keep * smoothstep(0.32, 1.08, rr);
   col *= uFade;
   vec4 o = linearToOutputTexel(vec4(max(col, 0.0), 1.0));
   float n = hash12(gl_FragCoord.xy + fract(uTime * 7.13) * 917.0) - 0.5;
-  o.rgb += n * uGrain * (0.55 + 0.9 * (1.0 - clamp(l * 1.4, 0.0, 1.0)));
+  o.rgb += n * uGrain * keep * (0.55 + 0.9 * (1.0 - clamp(l * 1.4, 0.0, 1.0)));
   gl_FragColor = o;
 }`;
 
+// ESCENA: nada brilla delante de la columna de texto mientras se lee (rectángulo en NDC con borde suave)
+const GLSL_CLEAN = /* glsl */`
+uniform vec4 uCleanNdc; uniform float uCleanAmt;
+float cleanKeep(vec4 clip){
+  vec2 n = clip.xy / max(clip.w, 1e-4);
+  vec2 e = smoothstep(uCleanNdc.xy - 0.06, uCleanNdc.xy, n) * (1.0 - smoothstep(uCleanNdc.zw, uCleanNdc.zw + 0.06, n));
+  return 1.0 - uCleanAmt * e.x * e.y;
+}`;
 const VS_SPARK = /* glsl */`
 attribute vec3 aColor; attribute float aSize; attribute float aAlpha;
 uniform float uScale; varying vec3 vColor; varying float vAlpha;
+${GLSL_CLEAN}
 void main(){
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   float s = aSize * uScale / max(0.001, -mv.z);
   gl_PointSize = clamp(s, 1.0, 48.0);
-  vColor = aColor; vAlpha = aAlpha * min(1.0, s * s);
+  vColor = aColor; vAlpha = aAlpha * min(1.0, s * s) * cleanKeep(gl_Position);
 }`;
 const FS_SPARK = /* glsl */`
 varying vec3 vColor; varying float vAlpha;
@@ -270,6 +303,7 @@ const VS_DUST = /* glsl */`
 attribute vec4 aSeed;
 uniform float uTime, uScale, uFlick, uAmt; uniform vec3 uSpotPos, uSpotDir, uBoxMin, uBoxSize; uniform float uCosOuter, uCosInner;
 varying float vA;
+${GLSL_CLEAN}
 void main(){
   vec3 p = position;
   p.y = uBoxMin.y + mod(p.y - uBoxMin.y + uTime * (0.0035 + 0.006 * aSeed.w), uBoxSize.y);
@@ -283,7 +317,7 @@ void main(){
   float s = (0.0009 + 0.0016 * aSeed.w) * uScale / max(0.01, -mv.z);
   gl_PointSize = clamp(s, 1.0, 20.0);
   float edge = smoothstep(0.0, 0.06, p.y - uBoxMin.y) * smoothstep(0.0, 0.1, uBoxMin.y + uBoxSize.y - p.y);
-  vA = beam * (0.2 + 0.8 * tw * tw) * uFlick * edge * uAmt * min(1.0, s * s) * (0.35 + 0.3 * aSeed.w);
+  vA = beam * (0.2 + 0.8 * tw * tw) * uFlick * edge * uAmt * min(1.0, s * s) * (0.35 + 0.3 * aSeed.w) * cleanKeep(gl_Position);
 }`;
 const FS_DUST = /* glsl */`
 varying float vA;
@@ -344,6 +378,7 @@ function createPost(renderer, { samples, hdr }) {
     uDof: { value: 0 }, uFocus: { value: 1 }, uFocusRange: { value: 0.5 }, uNear: { value: 0.01 }, uFar: { value: 10 },
     uBloom: { value: 0.5 }, uSepia: { value: 0.1 }, uVig: { value: 0.5 }, uGrain: { value: 0.03 }, uTime: { value: 0 },
     uExpo: { value: 1 }, uFade: { value: 1 }, uWarm: { value: 0.5 }, uFxaa: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
+    uClean: { value: new THREE.Vector4(2, 2, 2, 2) }, uCleanFeather: { value: new THREE.Vector2(0.03, 0.03) }, uCleanAmt: { value: 0 },
   };
   if (!hdr) mBright.uniforms.uThreshold.value = 0.82; // sin destino flotante: umbral de bloom en LDR
   const mComp = mat(FS_COMPOSITE, U);
@@ -398,7 +433,7 @@ function createPost(renderer, { samples, hdr }) {
 }
 
 // ───────────────────────────── partículas (chispas, polvo de oro) ─────────────────────────────
-function createSparks(max) {
+function createSparks(max, cleanU = {}) {
   const pos = new Float32Array(max * 3), col = new Float32Array(max * 3), size = new Float32Array(max), alpha = new Float32Array(max);
   const vel = new Float32Array(max * 3), base = new Float32Array(max * 3), life = new Float32Array(max), maxLife = new Float32Array(max);
   const drag = new Float32Array(max), grav = new Float32Array(max), tw = new Float32Array(max), bsize = new Float32Array(max);
@@ -409,7 +444,7 @@ function createSparks(max) {
   const aAlpha = new THREE.BufferAttribute(alpha, 1).setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute('position', aPos); geo.setAttribute('aColor', aCol); geo.setAttribute('aSize', aSize); geo.setAttribute('aAlpha', aAlpha);
   geo.setDrawRange(0, 0);
-  const material = new THREE.ShaderMaterial({ vertexShader: VS_SPARK, fragmentShader: FS_SPARK, uniforms: { uScale: { value: 800 } },
+  const material = new THREE.ShaderMaterial({ vertexShader: VS_SPARK, fragmentShader: FS_SPARK, uniforms: { uScale: { value: 800 }, ...cleanU },
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   const points = new THREE.Points(geo, material); points.frustumCulled = false; points.renderOrder = 5; points.name = 'chispas';
   let n = 0;
@@ -594,6 +629,14 @@ export async function mountScroll(container, opts = {}) {
   scene.add(candleLight);
   const flash = new THREE.PointLight('#ff7a2a', 0, 0.6, 2);
   scene.add(flash);
+  // ESCENA · luz de lectura: direccional cálida SIN sombra (ilumina parejo toda la hoja: en una superficie plana N·L es constante).
+  // Nace con intensidad 0 (ya cuenta para los programas compilados en el calentamiento) y sube al elevarse el pergamino. Mientras
+  // tanto la vela clave se vuelve más frontal y abierta: la sombra del rollo superior cae detrás del rollo (sin banda oscura).
+  const readLight = new THREE.DirectionalLight('#ffe0bc', 0);
+  readLight.position.set(-0.22, 0.62, 1.15);
+  scene.add(readLight, readLight.target);
+  const KEY_POS = key.position.clone(), KEY_READ_POS = new THREE.Vector3(-0.3, 0.6, 1.0);
+  const READ_I = 1.75, KEY_READ_I = 0.6; // (medido: contraste del antetítulo ≥ 4.5:1 sin quemar el oro)
 
   // ───────── carga en paralelo
   const gltfLoader = new GLTFLoader();
@@ -807,8 +850,10 @@ export async function mountScroll(container, opts = {}) {
   let crumbN = 0;
   const fragState = [];
 
+  // ESCENA: rectángulo de la columna de texto en pantalla (NDC) compartido por chispas y motas: nada brilla delante del texto
+  const cleanU = { uCleanNdc: { value: new THREE.Vector4(2, 2, 2, 2) }, uCleanAmt: { value: 0 } };
   // chispas + polvo de oro (un solo sistema aditivo)
-  const sparks = createSparks(900);
+  const sparks = createSparks(900, cleanU);
   scene.add(sparks.points);
 
   // motas de polvo en el haz de la vela (todo en el vertex shader: coste de CPU nulo)
@@ -825,7 +870,7 @@ export async function mountScroll(container, opts = {}) {
   }
   const dustMat = new THREE.ShaderMaterial({ vertexShader: VS_DUST, fragmentShader: FS_DUST, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     uniforms: { uTime: { value: 0 }, uScale: { value: 800 }, uFlick: { value: 1 }, uAmt: { value: reduced ? 0.5 : 1 }, uSpotPos: { value: new THREE.Vector3() }, uSpotDir: { value: new THREE.Vector3(0, -1, 0) },
-      uBoxMin: { value: dustBox.min }, uBoxSize: { value: dustBox.size }, uCosOuter: { value: Math.cos(KEY_ANGLE * 0.62) }, uCosInner: { value: Math.cos(KEY_ANGLE * 0.12) } } });
+      uBoxMin: { value: dustBox.min }, uBoxSize: { value: dustBox.size }, uCosOuter: { value: Math.cos(KEY_ANGLE * 0.62) }, uCosInner: { value: Math.cos(KEY_ANGLE * 0.12) }, ...cleanU } });
   const dust = new THREE.Points(dustGeo, dustMat); dust.frustumCulled = false; dust.renderOrder = 3; dust.name = 'motas';
   scene.add(dust);
 
@@ -872,12 +917,17 @@ export async function mountScroll(container, opts = {}) {
   const tmpCam = new THREE.PerspectiveCamera();
   const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion();
   const safe = { top: opts.safeArea?.top || 0, bottom: opts.safeArea?.bottom || 0 };
-  function fitPose(points, target, dir, mx, my, cy = 0, out) {
+  // ESCENA: zona que tapa la interfaz del sitio en la lectura y el encuadre final (CTA abajo en móvil/tableta, a la derecha en
+  // escritorio ancho; botón de música): main.js la mide y la pasa con setSafeArea({ top, bottom, left, right }) en px
+  const readSafe = { top: 0, bottom: 0, left: 0, right: 0 };
+  function fitPose(points, target, dir, mx, my, cy = 0, out, area = safe) {
     tmpCam.fov = camera.fov; tmpCam.aspect = aspect; tmpCam.near = 0.005; tmpCam.far = 50; tmpCam.updateProjectionMatrix();
-    // zona útil (descontando la interfaz del sitio que tapa arriba/abajo)
-    const top = 1 - 2 * clamp(safe.top / H, 0, 0.45), bot = -1 + 2 * clamp(safe.bottom / H, 0, 0.45);
+    // zona útil (descontando la interfaz del sitio que tapa arriba/abajo y, en el encuadre final, a los lados)
+    const top = 1 - 2 * clamp(area.top / H, 0, 0.45), bot = -1 + 2 * clamp(area.bottom / H, 0, 0.45);
+    const lft = -1 + 2 * clamp((area.left || 0) / W, 0, 0.45), rgt = 1 - 2 * clamp((area.right || 0) / W, 0, 0.45);
     const half = (top - bot) / 2, ctr = (top + bot) / 2 + cy * half;
-    const myEff = Math.max(0.15, (my - Math.abs(cy)) * half);
+    const halfX = (rgt - lft) / 2, ctrX = (rgt + lft) / 2;
+    const myEff = Math.max(0.15, (my - Math.abs(cy)) * half), mxEff = Math.max(0.15, mx * halfX);
     let lo = 0.03, hi = 8;
     for (let it = 0; it < 30; it++) {
       const d = (lo + hi) / 2;
@@ -887,24 +937,39 @@ export async function mountScroll(container, opts = {}) {
         _v.copy(p).applyMatrix4(tmpCam.matrixWorldInverse);
         if (_v.z > -0.01) { ok = false; break; }
         _v.applyMatrix4(tmpCam.projectionMatrix);
-        if (Math.abs(_v.x) > mx || Math.abs(_v.y) > myEff) { ok = false; break; }
+        if (Math.abs(_v.x) > mxEff || Math.abs(_v.y) > myEff) { ok = false; break; }
       }
       if (ok) hi = d; else lo = d;
     }
     out.pos.copy(target).addScaledVector(dir, hi); out.tgt.copy(target);
-    // desplaza en vertical para centrar el objeto en la zona útil
-    const s = -ctr * hi * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    // desplaza para centrar el objeto en la zona útil (vertical y, si hay zona lateral, horizontal)
+    const tf = hi * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     _v2.set(0, 1, 0).applyQuaternion(tmpCam.quaternion);
-    out.pos.addScaledVector(_v2, s); out.tgt.addScaledVector(_v2, s);
+    out.pos.addScaledVector(_v2, -ctr * tf); out.tgt.addScaledVector(_v2, -ctr * tf);
+    if (Math.abs(ctrX) > 1e-4) {
+      _v2.set(1, 0, 0).applyQuaternion(tmpCam.quaternion);
+      out.pos.addScaledVector(_v2, -ctrX * tf * aspect); out.tgt.addScaledVector(_v2, -ctrX * tf * aspect);
+    }
     out.dist = hi;
+    out.pxPerM = (H / 2) / tf; // px de pantalla por metro en el plano del objetivo (para medir la altura-x)
     return out;
   }
   const dirFrom = (el, az) => new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
-  const mkPose = () => ({ pos: new THREE.Vector3(), tgt: new THREE.Vector3(), focus: new THREE.Vector3(), dist: 1 });
-  const poses = { closed: mkPose(), seal: mkPose(), medium: mkPose(), open: mkPose() };
+  const mkPose = () => ({ pos: new THREE.Vector3(), tgt: new THREE.Vector3(), focus: new THREE.Vector3(), dist: 1, pxPerM: 1 });
+  const poses = { closed: mkPose(), seal: mkPose(), medium: mkPose(), open: mkPose(), final: mkPose(), wide: mkPose(), read: mkPose() };
+  // ESCENA · columna de texto (local de la hoja abierta) y altura-x del cuerpo en metros (para elegir encuadres legibles)
+  const TA = PARCH.TEXT_AREA || { center: [0.063, 0.0273, 0], width: 0.1416, height: 0.3541 };
+  const XH = (P.debug?.layout?.alturaX ?? 43.6) * (SHEET_W / 2048);
+  const READ_XH_MAX = 26;   // px: altura-x máxima al leer (más cerca solo marea)
+  let finalMode = 'sheet';  // 'sheet' (hoja completa) | 'column' (móvil vertical: la columna centrada)
+  // ESCENA · lugar reservado del TINTERO sobre la mesa, a la derecha del rollo inferior (diestro), junto a la vela de la derecha
+  // en pantallas anchas; en vertical se arrima a la hoja para seguir en cuadro. Mundo: y = 0 (mesa).
+  const inkSpot = { pos: new THREE.Vector3(0.205, 0, 0.085), rotY: 0.9 }; // (rotY: la pluma en reposo se recuesta hacia atrás-derecha, lejos de los CTA)
+  let quill = null;         // pluma de js/pluma.js (attachQuill)
   const tmpObj = new THREE.Object3D();
   function localPointsTo(pos, quat, list) { tmpObj.position.copy(pos); tmpObj.quaternion.copy(quat); tmpObj.updateMatrixWorld(true); return list.map((p) => new THREE.Vector3(...p).applyMatrix4(tmpObj.matrixWorld)); }
   function boxPts(x0, x1, y0, y1, z0, z1) { const o = []; for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) o.push([x, y, z]); return o; }
+  const ka0 = () => clamp((aspect - 0.6) / 0.9); // 0 vertical … 1 apaisado ancho (vela y tintero responsive)
   function computePoses() {
     const portrait = aspect < 0.85;
     camera.fov = portrait ? 36 : aspect < 1.25 ? 32 : 29;
@@ -931,6 +996,33 @@ export async function mountScroll(container, opts = {}) {
     const oCtr = new THREE.Vector3(0, 0, 0.006).applyMatrix4(tmpObj.matrixWorld); // tmpObj quedó en la pose abierta
     fitPose(oPts, oCtr, dirFrom(OPEN_TILT + 0.02, 0.05), portrait ? 0.96 : 0.92, portrait ? 0.86 : 0.9, 0, poses.open);
     poses.open.focus.copy(oCtr);
+    // ESCENA · encuadre final LEGIBLE: hoja completa (varillas incluidas) en la zona libre de los CTA; si así la altura-x del cuerpo
+    // queda bajo ~9.5 px (móvil vertical, apaisado bajo), la columna de texto centrada y completa.
+    const readDir = dirFrom(OPEN_TILT + 0.02, 0.05);
+    fitPose(oPts, oCtr, readDir, 0.96, 0.97, 0, poses.final, readSafe);
+    finalMode = 'sheet';
+    if (poses.final.pxPerM * XH < 9.5) {
+      // móvil: centrado en la columna de texto y con la hoja completa en alto (los CTA de abajo nunca la pisan) si así la
+      // altura-x llega a 8 px; si no (apaisado bajo), solo la columna completa
+      const c = TA.center, m = 0.007;
+      const cPts = localPointsTo(openPos, qOpen, boxPts(c[0] - TA.width / 2 - m, c[0] + TA.width / 2 + m, -OPEN_HALF_H, OPEN_HALF_H, 0, 0.02));
+      const cCtr2 = new THREE.Vector3(c[0], 0, 0.006).applyMatrix4(tmpObj.matrixWorld);
+      fitPose(cPts, cCtr2, readDir, 0.97, 0.975, 0, poses.final, readSafe);
+      finalMode = 'column';
+      if (poses.final.pxPerM * XH < 8) {
+        const tPts = localPointsTo(openPos, qOpen, boxPts(c[0] - TA.width / 2 - m, c[0] + TA.width / 2 + m, c[1] - TA.height / 2 - m, c[1] + TA.height / 2 + m, 0, 0.004));
+        const tCtr = new THREE.Vector3(c[0], c[1], 0.002).applyMatrix4(tmpObj.matrixWorld);
+        fitPose(tPts, tCtr, readDir, 0.97, 0.97, 0, poses.final, readSafe);
+        finalMode = 'text';
+      }
+    }
+    poses.final.focus.copy(oCtr);
+    // tintero (responsive: en vertical se arrima a la hoja) y plano abierto que lo incluye (remojos y vuelo de la pluma)
+    inkSpot.pos.set(lerp(0.15, 0.205, ka0()), 0, lerp(0.1, 0.085, ka0()));
+    if (quill?.inkwell) { quill.inkwell.position.copy(inkSpot.pos); quill.inkwell.rotation.y = inkSpot.rotY; quill.inkwell.updateMatrixWorld(true); }
+    const iPts = [...oPts, ...boxPts(inkSpot.pos.x - 0.03, inkSpot.pos.x + 0.03, 0, 0.08, inkSpot.pos.z - 0.03, inkSpot.pos.z + 0.03).map((p) => new THREE.Vector3(...p))];
+    fitPose(iPts, oCtr, readDir, 0.96, 0.95, 0, poses.wide, readSafe);
+    poses.wide.focus.copy(oCtr);
     // vela del fondo (responsive: en vertical se acerca al centro para seguir en cuadro)
     const ka = clamp((aspect - 0.6) / 0.9);
     candle.position.set(lerp(-0.13, -0.255, ka), 0, lerp(-0.24, -0.19, ka));
@@ -946,6 +1038,10 @@ export async function mountScroll(container, opts = {}) {
   const pointer = { x: 0, y: 0, sx: 0, sy: 0, inside: false, down: null };
   const cam = { pos: new THREE.Vector3(), tgt: new THREE.Vector3(), vp: new THREE.Vector3(), vt: new THREE.Vector3(), focus: 1, goal: 'closed' };
   const grade = { sepia: 0.1, grain: 0.028, vig: 0.5, expo: 1, dof: 0.85, bloom: 0.5, fade: 0, warm: 0.6 };
+  // ESCENA · ritmo de la secuencia (max(tiempo, scroll) con tope) y lectura
+  let scrollMax = 0, hasScroll = false;  // máximo del progreso del recorrido fijo que pasa main.js (nunca retrocede)
+  const pace = { mul: 1, wNat: 0, wRate: 1, wRateS: 1, back: -1, ctaShown: false, gate: 0, wt: 0 };
+  let readK = 0, cleanAmt = 0, wideK = 0, textFade = 1, camCut = 0;
   const uState = { u: 0, v: 0 };
   let seq = null;
   let openClock = 0, nextSweep = 6, sweepT = -1, sweepDur = 1.8, sweepGain = 1.25, nextDrizzle = 0;
@@ -962,11 +1058,19 @@ export async function mountScroll(container, opts = {}) {
 
   // ───────── tamaño / calidad
   let pointScale = 800;
+  let sizeKey = '';
   function applySize() {
     measure();
     dpr = Math.min(Q.dpr, window.devicePixelRatio || 1, DPR_CAP);
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(W, H, false);
+    // PERF-RETOMA: solo si cambió el tamaño o la densidad (renderer.setSize reasigna el búfer del lienzo aunque sea igual:
+    // ~70 ms en escritorio con MSAA, y lo borra). Antes pasaba también en el primer aviso del ResizeObserver y en cada cambio
+    // de nivel que no toca el DPR (L2↔L3↔L4).
+    const key = W + 'x' + H + '@' + dpr;
+    if (key !== sizeKey) {
+      sizeKey = key;
+      renderer.setPixelRatio(dpr);
+      renderer.setSize(W, H, false);
+    }
     const db = renderer.getDrawingBufferSize(new THREE.Vector2());
     post?.setSize(db.x, db.y);
     computePoses();
@@ -1004,10 +1108,17 @@ export async function mountScroll(container, opts = {}) {
     disposeExtra.push(() => po.disconnect());
   } catch { /* sin PerformanceObserver */ }
   function drop(n) {
+    // ESCENA: la apertura dura ahora ~35 s (escritura natural) y la otra variante de los programas (pantalla, L3/L4) se compila
+    // al terminarla: hasta entonces la bajada se queda en L2 (mismo destino HDR, DPR 1, solo bloom), sin recompilar en vivo
+    // (antes: L2 → L3 durante la lectura = 1.4 s congelado compilando ~40 programas).
+    let target = Math.min(LEVELS.length - 1, qLevel + n);
+    if (post && LEVELS[target].post === 0 && LEVELS[qLevel].post > 0 && !variantReady.screen) target = Math.max(qLevel, 2);
+    if (target === qLevel) { fpsWin.t = 0; fpsWin.n = 0; fpsWin.max = 0; fpsWin.warm = 2; compileOtherVariant(); return; }
     // volvió a caer poco después de recuperar → ESE nivel queda bloqueado (se puede volver a los de abajo, no a él)
     if (time - lastRecoverT < 8) lockAt = Math.max(lockAt, qLevel);
-    qLevel = Math.min(LEVELS.length - 1, qLevel + n); recovered = 0; applyQuality();
+    qLevel = target; recovered = 0; applyQuality();
   }
+  const variantReady = { hdr: false, screen: false };
   function adapt(dt) {
     fpsAcc += dt; fpsN++;
     if (fpsAcc >= 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
@@ -1252,14 +1363,22 @@ export async function mountScroll(container, opts = {}) {
       if (!best) return; best.state = 3; return;
     }
     const portrait = aspect < 0.85, wx = portrait ? 0.2 : 0.36;
-    const front = rng() < 0.62;
+    let front = rng() < 0.62;
+    let x = rnd(-wx, wx);
+    // ESCENA: con el pergamino abierto, los pétalos de delante caen SOLO a los lados de la columna de texto (nunca encima)
+    if (front && cleanAmt > 0.01) {
+      const c0 = TA.center[0] - TA.width / 2 - 0.07, c1 = TA.center[0] + TA.width / 2 + 0.07;
+      const lw = Math.max(0, Math.min(c0, wx) + wx), rw = Math.max(0, wx - Math.max(c1, -wx));
+      if (lw + rw < 0.03) front = false;
+      else { const r = rng() * (lw + rw); x = r < lw ? -wx + r : Math.max(c1, -wx) + (r - lw); }
+    }
     const z = front ? rnd(0.04, 0.17) : rnd(-0.22, -0.05);
-    p.p.set(rnd(-wx, wx), frameTopY(z) + (burst ? rnd(-0.012, 0.03) : rnd(0.01, 0.07)), z);
+    p.p.set(x, frameTopY(z) + (burst ? rnd(-0.012, 0.03) : rnd(0.01, 0.07)), z);
     p.v.set(0, burst ? -rnd(0.06, 0.08) : -rnd(0.02, 0.05), 0);
     p.q.setFromEuler(new THREE.Euler(rng() * 6.28, rng() * 6.28, rng() * 6.28));
     p.ax.set(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize();
     p.w = rnd(1.2, 3.2) * (rng() < 0.5 ? -1 : 1); p.s = rnd(0.026, 0.036); p.age = 0; p.ph = rng() * 6.28;
-    p.f1 = rnd(1.6, 2.6); p.f2 = rnd(0.9, 1.6); p.f3 = rnd(0.7, 1.3); p.vt = rnd(0.055, 0.09); p.wind = rnd(-0.012, 0.018); p.state = 1; p.fade = 1; p.landT = 0;
+    p.f1 = rnd(1.6, 2.6); p.f2 = rnd(0.9, 1.6); p.f3 = rnd(0.7, 1.3); p.vt = rnd(0.055, 0.09); p.wind = rnd(-0.012, 0.018); p.state = 1; p.fade = 1; p.landT = 0; p.quick = false;
     petalCursor++;
   }
   function updatePetals(dt) {
@@ -1282,6 +1401,11 @@ export async function mountScroll(container, opts = {}) {
           if (Math.abs(_l.x) < 0.17 && Math.abs(_l.y) < OPEN_HALF_H && _l.z > -0.014 && _l.z < 0.032) {
             _l.z = _l.z > 0.009 ? 0.032 : -0.014; p.p.copy(_l).applyMatrix4(rig.matrixWorld); p.v.z *= -0.2;
           }
+          // ESCENA: un pétalo de delante que el viento acerca a la columna de texto (en pantalla) se desvanece
+          if (cleanAmt > 0.5 && _l.z > 0.004) {
+            _v.copy(p.p).project(camera); const N = cleanU.uCleanNdc.value, mg = 0.05 + p.s * 2.2;
+            if (_v.z < 1 && _v.x > N.x - mg && _v.x < N.z + mg && _v.y > N.y - mg && _v.y < N.w + mg) { p.state = 3; p.quick = true; }
+          }
         }
         if (p.p.y <= 0.0016) {
           p.p.y = 0.0016; p.state = 2; p.landT = 0;
@@ -1291,7 +1415,7 @@ export async function mountScroll(container, opts = {}) {
       } else if (p.state === 2) {
         p.landT += dt; p.q.slerp(p.qT, clamp(dt * 6));
       } else if (p.state === 3) {
-        p.fade -= dt * 2; if (p.fade <= 0) { p.state = 0; p.fade = 1; petalSets[p.set].mesh.setMatrixAt(p.slot, _zero); petalSets[p.set].mesh.instanceMatrix.needsUpdate = true; continue; }
+        p.fade -= dt * (p.quick ? 7 : 2); if (p.fade <= 0) { p.state = 0; p.fade = 1; p.quick = false; petalSets[p.set].mesh.setMatrixAt(p.slot, _zero); petalSets[p.set].mesh.instanceMatrix.needsUpdate = true; continue; }
       }
       _m4.compose(p.p, p.q, _v.setScalar(p.s * (p.state === 3 ? p.fade : 1)));
       petalSets[p.set].mesh.setMatrixAt(p.slot, _m4);
@@ -1343,7 +1467,7 @@ export async function mountScroll(container, opts = {}) {
     // asentamiento con peso (pequeño cabeceo amortiguado) + vaivén sutil en reposo
     const d = TL.liftDur;
     const wob = reduced ? 0 : 0.03 * sstep(d * 0.72, d, lt) * Math.exp(-Math.max(0, lt - d) * 2.6) * Math.sin((lt - d * 0.72) * 7.5);
-    const sw = reduced ? 0 : sstep(d, d + 2.5, lt);
+    const sw = reduced ? 0 : sstep(d, d + 2.5, lt) * (1 - 0.75 * readK); // ESCENA: casi quieta mientras se lee
     const swayY = sw * (Math.sin(lt * 0.52) * 0.016 + Math.sin(lt * 0.23 + 1) * 0.008);
     const swayX = wob + sw * Math.sin(lt * 0.41 + 0.6) * 0.007;
     if (swayX || swayY) rig.quaternion.multiply(_q.setFromEuler(new THREE.Euler(swayX, swayY, sw * Math.sin(lt * 0.33) * 0.004)));
@@ -1368,7 +1492,16 @@ export async function mountScroll(container, opts = {}) {
     P.setUnroll(uState.u);
     return uState.u - u0;
   }
-  function updateSequence(dt) {
+  // ESCENA · ritmo = max(tiempo, scroll): la velocidad es 1× (tiempo real) o más si el scroll va por delante, con tope.
+  // rate = 1 + retraso / tau (retraso en s naturales). Los objetivos salen de scrollMax (nunca retrocede).
+  const SEC = P.writing?.seconds || 21.9;
+  const paceRate = (lag, cap) => clamp(1 + Math.max(0, lag) / PACE.tau, 1, cap);
+  const openTarget = () => (!hasScroll ? 0 : scrollMax >= PACE.sOpen ? 1e9 : (scrollMax / PACE.sOpen) * PACE.openEst);
+  const writeTarget = () => (!hasScroll ? 0 : clamp((scrollMax - PACE.sOpen) / (PACE.sWrite - PACE.sOpen)) * SEC);
+  const holdDur = () => (reduced ? 0.45 : READ_HOLD), backDur = () => (reduced ? 0.6 : BACK_DUR);
+  const backTarget = () => (!hasScroll ? 0 : clamp((scrollMax - PACE.sWrite) / (PACE.sBack - PACE.sWrite)) * (holdDur() + backDur()));
+  /** dt = s de secuencia (acelerados en la apertura) · dtR = s reales (la escritura y el alejamiento llevan su propio ritmo). */
+  function updateSequence(dt, dtR = dt) {
     const t = (seq.t += dt * (seq.fired.brk ? 1 : seq.rate));
     // grietas que brillan sobre el sello entero
     if (t >= TL.crack && seq.fired.brk !== true) {
@@ -1402,13 +1535,14 @@ export async function mountScroll(container, opts = {}) {
       pFrom.copy(rig.position); qFrom.copy(rig.quaternion);
       sfx('whoosh');
     }
+    const hurry = pace.mul > 1.3; // (navegando rápido no se espera al pulso de la canción)
     if (seq.liftT >= 0) {
       const lt = t - seq.liftT;
       rigPoseAfterLift(lt);
-      if (lt >= TL.unrollDelay && seq.unrollAt == null) seq.unrollAt = t + beatWait(0.6);
+      if (lt >= TL.unrollDelay && seq.unrollAt == null) seq.unrollAt = t + (hurry ? 0 : beatWait(0.6));
       if (seq.unrollAt != null && t >= seq.unrollAt && seq.unrollT < 0) {
         seq.unrollT = t; phase = 'unroll';
-        sfx('paperUnroll', TL.unrollDur * 0.92);
+        sfx('paperUnroll', (TL.unrollDur * 0.92) / Math.max(1, pace.mul));
         puffDust();
       }
     }
@@ -1417,81 +1551,142 @@ export async function mountScroll(container, opts = {}) {
       const du = stepUnroll(dt, ut);
       emitRollDust(du);
       if (P.uniforms?.pEdgeWave && U0.edge != null) P.uniforms.pEdgeWave.value = U0.edge * (1 + 2.2 * Math.exp(-Math.max(0, ut - TL.unrollDur * 0.6) * 1.6) * sstep(0, 0.4, ut));
-      if (ut >= TL.writeDelay && seq.writeT < 0) { seq.writeT = t; phase = 'write'; }
+      if (ut >= TL.writeDelay && seq.writeT < 0) {
+        seq.writeT = t; phase = 'write'; pace.gate = 0;
+        if (reduced) { pace.wNat = SEC; textFade = 0; P.setTextOpacity?.(0); }
+      }
     }
     if (seq.writeT >= 0) {
-      const wt = t - seq.writeT;
-      try { P.setWriting?.(clamp(wt / TL.writeDur)); } catch { /* */ }
-      if (!reduced && wt < TL.writeDur) penSparks(dt);
+      // ── la escritura: reloj propio en s naturales (P.writing.seconds), max(tiempo, scroll) con tope
+      if (reduced) {
+        // prefers-reduced-motion: todo escrito de una vez y un fundido corto
+        textFade = Math.min(1, textFade + dtR / 0.55); P.setTextOpacity?.(textFade);
+      } else if (pace.wNat < SEC) {
+        pace.gate += dtR;
+        // con pluma visible: la escritura espera (≤ 2.5 s) a que la pluma esté suspendida sobre el primer trazo
+        const waitQuill = pace.wNat <= 0 && quill && !quill.ready && pace.gate < 2.5;
+        if (!waitQuill) {
+          const lagW = writeTarget() - pace.wNat;
+          let cap = PACE.writeCap;
+          if (quill && lagW < 1.5) { try { const qc = quill.rateCap?.(pace.wt); if (Number.isFinite(qc)) cap = Math.min(cap, Math.max(1, qc)); } catch { /* */ } }
+          pace.wRate = paceRate(lagW, cap);
+          pace.wRateS = damp(pace.wRateS, pace.wRate, pace.wRate > pace.wRateS ? 5 : 2.5, dtR);
+          pace.wNat = Math.min(SEC, pace.wNat + dtR * pace.wRateS);
+        }
+      }
+      pace.wt = clamp(pace.wNat / SEC);
+      try { P.setWriting?.(pace.wt); } catch { /* */ }
       // barrido de luz sobre el oro que acompaña a la pluma
-      const sw = clamp((wt - 0.2) / (TL.writeDur * 0.95));
+      const sw = clamp((pace.wt - 0.01) / 0.98);
       if (P.uniforms?.pSweepGain) P.uniforms.pSweepGain.value = (U0.gain ?? 1.25) * 0.75;
-      P.setLightSweep(sw > 0 && sw < 1 ? lerp(-1.25, 1.3, sw) : -9);
-      // chime cuando la pluma empieza a dorar los nombres (si parchment.js expone getPen); si no, a tiempo fijo
+      P.setLightSweep(!reduced && sw > 0 && sw < 1 ? lerp(-1.25, 1.3, sw) : -9);
+      // chime cuando la pluma empieza a dorar los nombres
       let gild = false; try { gild = !!P.getPen?.()?.gilding; } catch { /* */ }
-      if ((gild || wt >= TL.chime + (P.getPen ? 1.6 : 0)) && fire('chime')) sfx('chime');
-      if (wt >= TL.petals && seq.petalAt == null) seq.petalAt = t + beatWait(0.7);
-      if (seq.petalAt != null && t >= seq.petalAt && fire('petals')) { seq.petalBurst = 0; seq.petalAcc = 1.5; sfx('sparkle'); glitterRain(Math.round(110 * Q.parts)); }
+      if ((gild || (reduced && textFade > 0.5)) && fire('chime')) sfx('chime');
+      // ── todo escrito: pausa breve y la cámara se aleja (encuadre final legible); CTAs al 55 % del alejamiento
+      if (pace.wNat >= SEC) {
+        if (pace.back < 0) { pace.back = 0; phase = 'read'; }
+        const rB = reduced ? 1 : paceRate(backTarget() - pace.back, PACE.backCap);
+        pace.backRate = rB;
+        pace.back += dtR * rB;
+        if (pace.back >= holdDur() && fire('pull')) {
+          phase = 'final';
+          if (P.uniforms?.pSweepGain) P.uniforms.pSweepGain.value = U0.gain ?? 1.25;
+          // pétalos y brillo: ahora, a los lados de la columna (nunca delante del texto)
+          if (!reduced) { seq.petalBurst = 0; seq.petalAcc = 1.5; sfx('sparkle'); glitterRain(Math.round(90 * Q.parts)); }
+        }
+        if (pace.back >= holdDur() + backDur() * 0.55 && !pace.ctaShown) {
+          pace.ctaShown = true;
+          try { onOpenedCb(); } catch (e) { console.warn('[scroll3d] onOpened:', e); }
+        }
+        if (pace.back >= holdDur() + backDur() && fire('done')) finishOpen();
+      }
       if (seq.petalBurst != null && seq.petalBurst < 30) {
-        seq.petalAcc = (seq.petalAcc || 0) + dt * 12;
+        seq.petalAcc = (seq.petalAcc || 0) + dtR * 12;
         while (seq.petalAcc >= 1 && seq.petalBurst < Math.round(30 * Math.max(0.5, Q.parts))) { seq.petalAcc -= 1; seq.petalBurst++; spawnPetal(true); }
       }
-      if (wt >= TL.done && fire('done')) finishOpen();
-    }
-  }
-  let penAcc = 0;
-  function penSparks(dt) {
-    let pen = null;
-    try { pen = P.getPen?.(); } catch { /* */ }
-    if (!pen || !(pen.active || pen.gilding) || !pen.position) return;
-    const gold = pen.gold || pen.gilding;
-    penAcc += dt * (gold ? 70 : 34) * Q.parts;
-    while (penAcc >= 1) {
-      penAcc -= 1;
-      const p = _v.copy(pen.position); p.z += 0.0015; rig.localToWorld(p);
-      const k = gold ? rnd(2.0, 4.5) : rnd(1.0, 2.2);
-      sparks.spawn(p, new THREE.Vector3(rnd(-0.012, 0.012), rnd(0.004, 0.022), rnd(0.004, 0.02)),
-        { color: gold ? [1.0 * k, 0.78 * k, 0.38 * k] : [1.0 * k, 0.7 * k, 0.42 * k], life: rnd(0.35, gold ? 1.3 : 0.8), drag: 2.2, grav: 0.003, size: rnd(0.0006, gold ? 0.0016 : 0.0011), twinkle: 0.5 });
     }
   }
   function finishOpen() {
     phase = 'open'; opened = true; opening = false;
-    openClock = 0; nextSweep = 2.5; nextDrizzle = 1.2;
+    openClock = 0; nextSweep = 4.5; nextDrizzle = 1.2;
     if (P.uniforms?.pSweepGain) P.uniforms.pSweepGain.value = U0.gain ?? 1.25;
     P.setLightSweep(-9);
-    try { P.setWriting?.(1); } catch { /* */ }
+    try { P.setWriting?.(1); P.setTextOpacity?.(1); } catch { /* */ }
+    pace.wNat = SEC; pace.wt = 1; textFade = 1;
     const r = seq.resolve; seq.resolve = null;
-    try { onOpenedCb(); } catch (e) { console.warn('[scroll3d] onOpened:', e); }
+    if (!pace.ctaShown) { pace.ctaShown = true; try { onOpenedCb(); } catch (e) { console.warn('[scroll3d] onOpened:', e); } }
     r?.();
   }
   function updateOpenIdle(dt) {
     openClock += dt;
     if (seq?.liftT >= 0) { seq.t += dt; rigPoseAfterLift(seq.t - seq.liftT); }
     if (seq?.petalBurst != null && seq.petalBurst < 30) { seq.petalAcc = (seq.petalAcc || 0) + dt * 12; while (seq.petalAcc >= 1 && seq.petalBurst < Math.round(30 * Math.max(0.5, Q.parts))) { seq.petalAcc -= 1; seq.petalBurst++; spawnPetal(true); } }
-    // barrido de luz cada ~6 s
-    if (!reduced && openClock >= nextSweep && sweepT < 0) { sweepT = 0; nextSweep = openClock + 6 + rng() * 1.5; }
+    // barrido de luz cada ~7 s
+    if (!reduced && openClock >= nextSweep && sweepT < 0) { sweepT = 0; nextSweep = openClock + 7 + rng() * 2; }
     if (sweepT >= 0) {
       sweepT += dt; const s = sweepT / sweepDur;
       P.setLightSweep(s < 1 ? lerp(-1.3, 1.3, easeInOutSine(s)) : -9);
       if (s >= 1) sweepT = -1;
     }
-    // llovizna suave de pétalos y brillos
-    if (!reduced && openClock >= nextDrizzle) { nextDrizzle = openClock + rnd(1.1, 2.0) / Math.max(0.4, Q.parts); spawnPetal(false); glitterRain(Math.round(6 * Q.parts)); }
+    // llovizna suave de pétalos (a los lados) y brillos
+    if (!reduced && openClock >= nextDrizzle) { nextDrizzle = openClock + rnd(1.3, 2.4) / Math.max(0.4, Q.parts); spawnPetal(false); glitterRain(Math.round(6 * Q.parts)); }
   }
 
   // ───────── cámara
-  function updateCamera(dt) {
-    let goal = 'closed', st = 0.6;
-    if (opened || (seq && seq.liftT >= 0)) { goal = 'open'; st = TL.camOpen; }
+  // ESCENA · pose de lectura: la columna de texto renglón a renglón (getFocus del renglón en curso, ~42 % desde arriba del
+  // cuadro, sujeta a los bordes de la columna). Altura visible: escritorio ≈ 0.235 m (altura-x ≈ 25 px a 900 px de alto),
+  // móvil vertical = la columna al 92 % del ancho; nunca más cerca que READ_XH_MAX. Navegando rápido el plano se abre hacia el
+  // encuadre final (menos movimiento). Sigue al rig (el vaivén queda quieto respecto del texto).
+  const READ_DIR = dirFrom(OPEN_TILT + 0.02, 0.05);
+  function readGoal(out, rate) {
+    const portrait = aspect < 0.85;
+    const fovT = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    let hv = portrait ? (TA.width / 0.92) / aspect : Math.max(0.235, (TA.width + 0.05) / aspect);
+    hv = Math.max(hv, (XH * H) / READ_XH_MAX);
+    const hvF = 2 * fovT * poses.final.dist;
+    hv = lerp(hv, Math.max(hv, hvF), clamp((rate - 1.3) / 4) * 0.75);
+    const f = P.getFocus(pace.wt);
+    const y0 = TA.center[1] - TA.height / 2 - 0.012, y1 = TA.center[1] + TA.height / 2 + 0.02;
+    let yc = (f.y0 + f.y1) / 2 - 0.08 * hv;
+    yc = y1 - y0 <= hv ? (y0 + y1) / 2 : clamp(yc, y0 + hv / 2, y1 - hv / 2);
+    // en horizontal: la hoja tan centrada como permita la columna completa (con margen); en vertical, la columna centrada
+    const halfW = (hv * aspect) / 2, cL = TA.center[0] - TA.width / 2 - 0.012, cR = TA.center[0] + TA.width / 2 + 0.012;
+    const xc = cR - cL >= 2 * halfW ? TA.center[0] : clamp(0.02, cR - halfW, cL + halfW);
+    out.tgt.set(xc, yc, 0.002); rig.localToWorld(out.tgt);
+    out.dist = (hv / 2) / fovT;
+    out.pos.copy(out.tgt).addScaledVector(READ_DIR, out.dist);
+    out.focus.copy(out.tgt);
+    out.pxPerM = H / hv;
+    return out;
+  }
+  function updateCamera(dt, dts = dt) {
+    let goal = 'closed', st = 0.6, sdt = dts;
+    const lifted = opened || (seq && seq.liftT >= 0);
+    if (reduced) goal = lifted ? 'final' : 'closed';      // prefers-reduced-motion: sin viaje de cámara (cortes)
+    else if (opened || (seq && pace.back >= holdDur())) { goal = 'final'; st = 1.15 / Math.max(1, pace.backRate || 1); sdt = dt; }
+    else if (seq && seq.writeT >= 0) { goal = 'read'; st = pace.wNat < 1.2 && seq.t - seq.writeT < 1.6 ? 0.95 : 0.62; sdt = dt; }
+    else if (lifted) { goal = quill ? 'wide' : 'open'; st = TL.camOpen; }
     else if (opening) { if (seq.t < TL.brk + 0.55) { goal = 'seal'; st = TL.camSeal; } else { goal = 'medium'; st = TL.camMedium; } }
-    const P0 = poses[goal];
-    smoothDampV(cam.pos, P0.pos, cam.vp, st, dt);
-    smoothDampV(cam.tgt, P0.tgt, cam.vt, st, dt);
+    let P0 = poses[goal];
+    if (goal === 'read') {
+      P0 = readGoal(poses.read, pace.wRateS);
+      // con pluma visible: durante el despegue, los remojos y el regreso el plano se abre para ver el tintero
+      if (wideK > 0.001) { P0.pos.lerp(poses.wide.pos, wideK); P0.tgt.lerp(poses.wide.tgt, wideK); P0.focus.lerp(poses.wide.focus, wideK); }
+    }
+    if (reduced) {
+      if (cam.goal !== goal) { cam.goal = goal; cam.pos.copy(P0.pos); cam.tgt.copy(P0.tgt); cam.vp.set(0, 0, 0); cam.vt.set(0, 0, 0); camCut++; }
+    } else {
+      cam.goal = goal;
+      smoothDampV(cam.pos, P0.pos, cam.vp, st, sdt);
+      smoothDampV(cam.tgt, P0.tgt, cam.vt, st, sdt);
+    }
     // foco (DOF): distancia al punto de interés
-    const fd = cam.pos.distanceTo(goal === 'open' ? (rig.getWorldPosition(_v), _v) : P0.focus);
+    const fd = cam.pos.distanceTo(goal === 'open' || goal === 'wide' ? (rig.getWorldPosition(_v), _v) : P0.focus);
     cam.focus = damp(cam.focus, fd, 6, dt);
-    // respiración de cámara + parallax del puntero/giroscopio
-    const breath = reduced ? 0 : (goal === 'seal' ? 0.35 : 1);
+    // respiración de cámara + parallax del puntero/giroscopio (casi quietos mientras se lee)
+    const calm = 1 - 0.8 * readK;
+    const breath = reduced ? 0 : (goal === 'seal' ? 0.35 : 1) * calm;
     pointer.sx = damp(pointer.sx, pointer.inside ? pointer.x : 0, 3, dt);
     pointer.sy = damp(pointer.sy, pointer.inside ? pointer.y : 0, 3, dt);
     const dist = cam.pos.distanceTo(cam.tgt);
@@ -1500,11 +1695,27 @@ export async function mountScroll(container, opts = {}) {
     camera.position.y += breath * Math.sin(time * 0.29 + 0.7) * 0.004 * dist;
     camera.position.z += breath * Math.sin(time * 0.23 + 2.1) * 0.003 * dist;
     if (!reduced) {
-      _v.set(1, 0, 0).applyQuaternion(camera.quaternion).multiplyScalar(pointer.sx * dist * 0.035);
-      _v2.set(0, 1, 0).applyQuaternion(camera.quaternion).multiplyScalar(pointer.sy * dist * 0.022);
+      const par = 1 - 0.7 * readK;
+      _v.set(1, 0, 0).applyQuaternion(camera.quaternion).multiplyScalar(pointer.sx * dist * 0.035 * par);
+      _v2.set(0, 1, 0).applyQuaternion(camera.quaternion).multiplyScalar(pointer.sy * dist * 0.022 * par);
       camera.position.add(_v).add(_v2);
     }
     camera.lookAt(cam.tgt);
+  }
+  // ESCENA · columna de texto proyectada en pantalla (NDC y UV) para la zona limpia del posproceso, polvo, chispas y pétalos
+  const _cc = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  function updateCleanRect() {
+    if (cleanAmt < 0.001) { cleanU.uCleanAmt.value = 0; return; }
+    camera.updateMatrixWorld();
+    let x0 = 9, y0 = 9, x1 = -9, y1 = -9;
+    const hx = TA.width / 2 + 0.006, hy = TA.height / 2 + 0.008;
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy], i) => {
+      const p = _cc[i].set(TA.center[0] + sx * hx, TA.center[1] + sy * hy, 0.002);
+      P.group.localToWorld(p); p.project(camera);
+      x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+    });
+    cleanU.uCleanNdc.value.set(x0, y0, x1, y1);
+    cleanU.uCleanAmt.value = cleanAmt;
   }
 
   // ───────── un paso de simulación
@@ -1520,7 +1731,9 @@ export async function mountScroll(container, opts = {}) {
     if (!reduced && !silent) { try { if (music?.playing && music.getEnergy) { const e = music.getEnergy(); eT = clamp(e.low * 0.6 + e.rms * 0.4); } } catch { /* */ } }
     songE += (eT - songE) * (1 - Math.exp(-dt / (eT > songE ? 0.1 : 0.6)));
     const eMul = 0.9 + 0.24 * songE;
-    key.intensity = KEY_I * (1 + (fl - 1) * 0.75) * eMul;
+    key.intensity = KEY_I * lerp(1, KEY_READ_I, readK) * (1 + (fl - 1) * 0.75 * (1 - 0.6 * readK)) * eMul;
+    key.position.lerpVectors(KEY_POS, KEY_READ_POS, readK);
+    readLight.intensity = READ_I * readK * (1 + (fl - 1) * 0.15);
     candleLight.intensity = CANDLE_I * fl * eMul;
     dustMat.uniforms.uAmt.value = (reduced ? 0.5 : 1) * (0.85 + 0.35 * songE);
     flameMat.uniforms.uTime.value = time; flameMat.uniforms.uFlick.value = fl;
@@ -1536,6 +1749,7 @@ export async function mountScroll(container, opts = {}) {
     key.target.position.lerp(_rp.setY(_rp.y * 0.92), clamp(dt * 3));
     key.target.updateMatrixWorld();
     rim.target.position.copy(key.target.position); rim.target.updateMatrixWorld();
+    readLight.target.position.copy(key.target.position); readLight.target.updateMatrixWorld();
     // el contraluz frío sólo cobra fuerza con el pergamino levantado (tumbado solo producía reflejos azules en la mesa)
     rimK = damp(rimK, (opened || (seq && seq.liftT >= 0)) ? 1 : 0.22, 1.5, dt);
     rim.intensity = 1.15 * rimK;
@@ -1563,11 +1777,24 @@ export async function mountScroll(container, opts = {}) {
       }
     }
 
-    if (opening && seq) updateSequence(dt);
+    // ESCENA · ritmo de la apertura (antes de escribir): acelera si el scroll va por delante (tope PACE.openCap)
+    let dts = dt;
+    if (opening && seq && !reduced && seq.writeT < 0) { pace.mul = damp(pace.mul, paceRate(openTarget() - seq.t, PACE.openCap), 3, dt); dts = dt * pace.mul; }
+    else pace.mul = 1;
+    if (opening && seq) updateSequence(dts, dt);
     else if (opened) updateOpenIdle(dt);
 
+    // ESCENA · lectura: luz pareja y zona limpia (suben al elevarse/desenrollarse el pergamino)
+    readK = damp(readK, opened || (seq && seq.liftT >= 0) ? 1 : 0, 1.4, dt);
+    cleanAmt = damp(cleanAmt, opened || (seq && seq.unrollT >= 0) ? 1 : 0, 2.5, dt);
+    if (quill && !reduced) {
+      const m = quill.mode;
+      const want = opening && seq && seq.writeT >= 0 && pace.wNat < SEC && pace.wRateS < 2.6 && ((quill.dipping || 0) > 0 || m === 'takeoff' || m === 'return') ? 1 : 0;
+      wideK = damp(wideK, want, want ? 2.4 : 1.6, dt);
+    } else wideK = 0;
+
     rig.updateMatrixWorld(true);
-    updateFragments(dt);
+    updateFragments(dts);
     sparks.update(dt, time);
     updatePetals(dt);
 
@@ -1577,27 +1804,42 @@ export async function mountScroll(container, opts = {}) {
       env.gravityLocal.set(0, -9.81, 0).transformDirection(_inv).multiplyScalar(9.81);
       env.groundPlaneLocal.copy(tablePlane).applyMatrix4(_inv);
     }
-    rb.update(dt, time, env);
+    // (ribbon.js recorta dt a 1/15 s: con la apertura acelerada, en tramos)
+    for (let r = dts, k = 0; r > 1e-6 && k < 6; r -= 1 / 20, k++) rb.update(Math.min(r, 1 / 20), time, env);
     P.update(time, dt);
     const rolls = P.getRolls();
     rodTop.position.copy(rolls.top.center); rodTop.rotation.x = rolls.top.angle;
     rodBot.position.copy(rolls.bottom.center); rodBot.rotation.x = rolls.bottom.angle;
 
-    updateCamera(dt);
+    updateCamera(dt, dts);
     updateGrade(dt);
+    updateCleanRect();
+    // ESCENA · pluma (js/pluma.js, attachQuill): después de mover el rig, setWriting y la cámara
+    if (quill) {
+      try { quill.update(dt, time, pace.wt, { phase: quillPhase(), camera, light: key, rate: pace.wRateS }); }
+      catch (e) { console.warn('[scroll3d] pluma:', e?.message || e); detachQuill(); }
+    }
+  }
+  function quillPhase() {
+    if (!seq || (!opening && !opened)) return 'rest';
+    if (opened) return 'done';
+    if (seq.writeT >= 0) return pace.wNat < SEC ? 'write' : 'done';
+    if (seq.unrollT >= 0) return 'ready';
+    return 'rest';
   }
   function updateGrade(dt) {
     let sepia = 0.1, grain = 0.026, vig = 0.5, expo = 1, dofA = 0.85, bloom = 0.5;
     if (opening && seq) {
       const t = seq.t;
       const o = sstep(TL.crack - 0.5, TL.brk + 1.2, t);
-      const w = seq.writeT >= 0 ? sstep(0.5, TL.writeDur, t - seq.writeT) : 0;
-      sepia = lerp(lerp(0.1, 0.34, o), 0.15, w);
-      grain = lerp(lerp(0.026, 0.055, o), 0.03, w);
+      // ESCENA: al empezar a escribir la película antigua se retira (la columna además queda limpia en la composición)
+      const w = seq.writeT >= 0 ? sstep(0, 1.6, t - seq.writeT) : seq.unrollT >= 0 ? 0.6 * sstep(0, TL.unrollDur, t - seq.unrollT) : 0;
+      sepia = lerp(lerp(0.1, 0.34, o), 0.12, w);
+      grain = lerp(lerp(0.026, 0.055, o), 0.024, w);
       vig = lerp(0.5, 0.62, o * (1 - w));
       expo = 1 + o * (1 - w) * (Math.sin(time * 31) * 0.012 + Math.sin(time * 13.7) * 0.01);
       dofA = goalIsSeal() ? 1 : 0.8;
-    } else if (opened) { sepia = 0.15; grain = 0.03; vig = 0.52; dofA = 0.75; bloom = 0.55; }
+    } else if (opened) { sepia = 0.12; grain = 0.024; vig = 0.5; dofA = 0.75; bloom = 0.55; }
     if (reduced) { grain *= 0.6; expo = 1; }
     const k = clamp(dt * 2.5);
     grade.sepia = lerp(grade.sepia, sepia, k); grade.grain = lerp(grade.grain, grain, k); grade.vig = lerp(grade.vig, vig, k);
@@ -1616,11 +1858,17 @@ export async function mountScroll(container, opts = {}) {
       U.uSepia.value = grade.sepia; U.uGrain.value = grade.grain; U.uVig.value = grade.vig; U.uExpo.value = grade.expo;
       U.uBloom.value = grade.bloom; U.uTime.value = time; U.uFade.value = 1; U.uWarm.value = grade.warm;
       U.uDof.value = Q.post >= 2 ? grade.dof : 0; U.uFocus.value = cam.focus; U.uFocusRange.value = Math.max(0.08, cam.focus * focusK);
+      // ESCENA: la columna de texto sin DOF, bloom, sepia, viñeta ni grano (UV = NDC/2 + 0.5)
+      const N = cleanU.uCleanNdc.value;
+      U.uClean.value.set(N.x * 0.5 + 0.5, N.y * 0.5 + 0.5, N.z * 0.5 + 0.5, N.w * 0.5 + 0.5);
+      U.uCleanFeather.value.set(0.035, 0.035 * aspect); U.uCleanAmt.value = cleanU.uCleanAmt.value;
       post.render(scene, camera, { dof: Q.post >= 2 });
       if (cssSepia) { canvas.style.filter = ''; cssSepia = 0; }
     } else {
-      const sp = Math.round(grade.sepia * 0.9 * 50) / 50;
+      const sp = Math.round(grade.sepia * 0.9 * (1 - cleanU.uCleanAmt.value) * 50) / 50;
       if (sp !== cssSepia) { cssSepia = sp; canvas.style.filter = sp > 0 ? `sepia(${sp}) saturate(${(1 + sp * 0.4).toFixed(2)})` : ''; }
+      const vo = (1 - 0.85 * cleanU.uCleanAmt.value).toFixed(2);
+      if (vignetteEl.style.opacity !== vo) vignetteEl.style.opacity = vo;
       renderer.setRenderTarget(null);
       renderer.render(scene, camera);
     }
@@ -1640,8 +1888,9 @@ export async function mountScroll(container, opts = {}) {
     lastT = now;
     const dt = Math.min(0.25, raw);
     if (!frozen) { const n = Math.min(4, Math.ceil(dt * 30 - 1e-6)); for (let i = 0; i < n; i++) step(dt / n); }
-    renderFrame();
+    // PERF-RETOMA: calidad antes de dibujar (applyQuality → setSize borra el lienzo: si fuera después, un cuadro vacío)
     adapt(raw);
+    renderFrame();
   }
   // PERF: nada se dibuja hasta que el montaje y el calentamiento terminan (ready). Antes, si la sección entraba en pantalla
   // a mitad del montaje, el IntersectionObserver arrancaba el bucle y el primer renderFrame enlazaba todos los programas y
@@ -1651,7 +1900,9 @@ export async function mountScroll(container, opts = {}) {
   io?.observe(container);
   const onVis = () => wake();
   document.addEventListener('visibilitychange', onVis);
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { applySize(); if (frozen) renderFrame(); }) : null;
+  // (PERF-RETOMA: el ResizeObserver corre después de los rAF y antes de pintar: si el bucle está vivo se vuelve a dibujar ya,
+  // si no el lienzo recién redimensionado se pintaba vacío un cuadro)
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { applySize(); if (frozen || (ready && raf)) renderFrame(); }) : null;
   ro?.observe(container);
   const onWinResize = () => { applySize(); if (frozen) renderFrame(); };
   addEventListener('resize', onWinResize);
@@ -1742,12 +1993,14 @@ export async function mountScroll(container, opts = {}) {
     const want = compiledVariants.has('hdr') ? 'screen' : 'hdr';
     if (compiledVariants.has(want)) return;
     compiledVariants.add(want);
-    if (want === 'screen') compileBatched(sceneProxies(), null, camera, { batch: 2 });
+    const ps = [];
+    if (want === 'screen') ps.push(compileBatched(sceneProxies(), null, camera, { batch: 2 }));
     else {
-      compileBatched(sceneProxies(), post.sceneTarget, camera, { batch: 2 });
-      compileBatched(post.materials.toTarget.map(quadProxy), post.sceneTarget, camera, { batch: 2, lights: false });
-      compileBatched(post.materials.toScreen.map(quadProxy), null, camera, { batch: 2, lights: false });
+      ps.push(compileBatched(sceneProxies(), post.sceneTarget, camera, { batch: 2 }));
+      ps.push(compileBatched(post.materials.toTarget.map(quadProxy), post.sceneTarget, camera, { batch: 2, lights: false }));
+      ps.push(compileBatched(post.materials.toScreen.map(quadProxy), null, camera, { batch: 2, lights: false }));
     }
+    Promise.all(ps).then(() => { variantReady[want] = true; }, () => {});
   }
   await idle(); // PERF-RETOMA (3.er corte: applyQuality → setSize y destinos del posproceso)
   applyQuality();
@@ -1801,8 +2054,8 @@ export async function mountScroll(container, opts = {}) {
           ps.push(compileBatched(sceneProxies(), post.sceneTarget, camera));
           ps.push(compileBatched(post.materials.toTarget.map(quadProxy), post.sceneTarget, camera, { lights: false }));
           ps.push(compileBatched(post.materials.toScreen.map(quadProxy), null, camera, { lights: false }));
-          compiledVariants.add('hdr');
-        } else { ps.push(compileBatched(sceneProxies(), null, camera)); compiledVariants.add('screen'); }
+          compiledVariants.add('hdr'); variantReady.hdr = true;
+        } else { ps.push(compileBatched(sceneProxies(), null, camera)); compiledVariants.add('screen'); variantReady.screen = true; }
         const shadowSet = shadowProxies();
         ps.push(compileBatched(shadowSet.list, shadowRT(), key.shadow.camera, { noFog: true }));
         await Promise.all(ps);
@@ -1849,7 +2102,12 @@ export async function mountScroll(container, opts = {}) {
     updateClosedQuat();
     rig.position.copy(closedPos); rig.quaternion.copy(qClosed); rig.updateMatrixWorld(true);
     uState.u = 0; uState.v = 0; P.setUnroll(0); P.setLightSweep(-9);
-    try { P.setWriting?.(0); } catch { /* */ }
+    try { P.setWriting?.(0); P.setTextOpacity?.(1); } catch { /* */ }
+    // ESCENA: ritmo, lectura y luces
+    Object.assign(pace, { mul: 1, wNat: 0, wRate: 1, wRateS: 1, back: -1, backRate: 1, ctaShown: false, gate: 0, wt: 0 });
+    scrollMax = 0; hasScroll = false; readK = 0; cleanAmt = 0; wideK = 0; textFade = 1;
+    key.position.copy(KEY_POS); readLight.intensity = 0; cleanU.uCleanAmt.value = 0;
+    try { quill?.reset?.(); } catch { /* */ }
     if (P.uniforms?.pEdgeWave && U0.edge != null) P.uniforms.pEdgeWave.value = U0.edge;
     if (P.uniforms?.pSweepGain && U0.gain != null) P.uniforms.pSweepGain.value = U0.gain;
     // lazo
@@ -1873,16 +2131,59 @@ export async function mountScroll(container, opts = {}) {
     renderer.shadowMap.needsUpdate = true; // (L3/L4 con sombras perezosas)
     wake();
   }
-  function seek(t) {
+  function seek(t, scroll = null) {
     reset();
     silent = true;
     startSequence();
+    if (Number.isFinite(scroll)) { hasScroll = true; scrollMax = clamp(scroll); }
     const n = Math.round(Math.max(0, t) * 60);
     for (let i = 0; i < n; i++) step(1 / 60);
     silent = false;
     frozen = true;
     renderFrame();
-    return { phase, u: +uState.u.toFixed(3), ribbon: rb.state, t: seq ? +seq.t.toFixed(2) : t };
+    return { phase, u: +uState.u.toFixed(3), ribbon: rb.state, t: seq ? +seq.t.toFixed(2) : t, wt: +pace.wt.toFixed(3) };
+  }
+  // ESCENA · gancho de la pluma (js/pluma.js de PLUMA-WEB). Precompila sus programas antes de mostrarla (sin compilación síncrona
+  // en el primer cuadro), coloca el tintero en su lugar reservado y la mueve cada cuadro con el mismo wt de setWriting.
+  async function attachQuill(q) {
+    if (!q || disposed) return false;
+    if (quill) detachQuill();
+    try { if (reduced) q.setReducedMotion?.(true); } catch { /* */ }
+    try { q.setQuality?.(clamp(qLevel, 0, 4)); } catch { /* */ }
+    if (q.inkwell) { q.inkwell.position.copy(inkSpot.pos); q.inkwell.rotation.y = inkSpot.rotY; }
+    const roots = [q.group, q.inkwell, q.debug?.paperStrip?.mesh].filter(Boolean);
+    try {
+      if (renderer.compileAsync) {
+        const tmp = new THREE.Scene();
+        for (const r of roots) { r.updateMatrixWorld(true); r.traverse((o) => { const px = o.material && !Array.isArray(o.material) ? proxyOf(o) : null; if (px) tmp.add(px); }); }
+        // las dos variantes (destino HDR del posproceso y pantalla): un cambio de calidad no recompila la pluma en vivo
+        const targets = post ? (Q.post > 0 ? [post.sceneTarget, null] : [null, post.sceneTarget]) : [null];
+        for (const tg of targets) {
+          const prev = renderer.getRenderTarget();
+          renderer.setRenderTarget(tg);
+          let pr = null;
+          try { pr = renderer.compileAsync(tmp, camera, scene); } finally { renderer.setRenderTarget(prev); }
+          await pr;
+          if (disposed) break;
+          await idle();
+        }
+        tmp.clear();
+      }
+    } catch (e) { console.warn('[scroll3d] precompilar pluma:', e?.message || e); }
+    if (disposed) { try { q.dispose?.(); } catch { /* */ } return false; }
+    if (q.group && !q.group.parent) scene.add(q.group);
+    if (q.inkwell && !q.inkwell.parent) scene.add(q.inkwell);
+    quill = q;
+    computePoses();
+    renderer.shadowMap.needsUpdate = true;
+    wake();
+    return true;
+  }
+  function detachQuill() {
+    const q = quill; quill = null; wideK = 0;
+    if (!q) return;
+    try { q.group?.removeFromParent(); q.inkwell?.removeFromParent(); q.dispose?.(); } catch { /* */ }
+    renderer.shadowMap.needsUpdate = true;
   }
   function dispose() {
     if (disposed) return;
@@ -1898,6 +2199,7 @@ export async function mountScroll(container, opts = {}) {
     try { unsubBeat?.(); } catch { /* */ }
     if (seq?.resolve) { const r = seq.resolve; seq.resolve = null; r(); }
     try { rb.dispose(); } catch { /* */ }
+    try { quill?.dispose?.(); quill = null; } catch { /* */ }
     try { P.dispose(); } catch { /* */ }
     sparks.dispose();
     const seen = new Set();
@@ -1932,7 +2234,30 @@ export async function mountScroll(container, opts = {}) {
     get phase() { return phase; },
     get quality() { return qLevel; },
     setQuality(n) { if (n == null) { forcedQ = null; return; } forcedQ = qLevel = clamp(n | 0, 0, LEVELS.length - 1); applyQuality(); },
-    setSafeArea(s = {}) { safe.top = +s.top || 0; safe.bottom = +s.bottom || 0; computePoses(); },
+    /** ESCENA: zona que tapa la interfaz (px) en la lectura y el encuadre final: { top, bottom, left, right } (CTA, música). */
+    setSafeArea(s = {}) {
+      const n = { top: +s.top || 0, bottom: +s.bottom || 0, left: +s.left || 0, right: +s.right || 0 };
+      if (n.top === readSafe.top && n.bottom === readSafe.bottom && n.left === readSafe.left && n.right === readSafe.right) return;
+      Object.assign(readSafe, n); computePoses();
+    },
+    /** ESCENA: progreso del recorrido fijo de la sección (0..1, main.js en cada scroll). Ritmo = max(tiempo, scroll) con tope;
+     *  solo cuenta el máximo alcanzado (la secuencia nunca retrocede). */
+    setScrollProgress(p) { if (!Number.isFinite(p)) return; hasScroll = true; const v = clamp(p); if (v > scrollMax) { scrollMax = v; if (opening) wake(); } },
+    /** ESCENA: estado de la secuencia para main.js (freno de la sección, CTAs) y pruebas. */
+    get sequence() {
+      return { phase, opening, opened, ctaShown: pace.ctaShown, done: opened, wt: +pace.wt.toFixed(4), wNat: +pace.wNat.toFixed(2),
+        rate: +(seq && seq.writeT < 0 ? pace.mul : pace.wRateS).toFixed(2), back: +pace.back.toFixed(2), scroll: +scrollMax.toFixed(3),
+        finalMode, readK: +readK.toFixed(2), clean: +cleanAmt.toFixed(2) };
+    },
+    /** ESCENA · lugar reservado del tintero (mundo, sobre la mesa: y = 0) y su giro; se recalcula con el tamaño (responsive). */
+    get inkwell() { return { position: inkSpot.pos.clone(), rotationY: inkSpot.rotY }; },
+    attachQuill, detachQuill, get quill() { return quill; },
+    /** ESCENA: legibilidad (px de pantalla por metro de hoja en el encuadre actual y altura-x del cuerpo). */
+    get legibility() {
+      camera.updateMatrixWorld(); const a = new THREE.Vector3(TA.center[0], TA.center[1], 0.0004), b = a.clone().setY(a.y + XH);
+      P.group.localToWorld(a); P.group.localToWorld(b); a.project(camera); b.project(camera);
+      return { xHeightPx: +(Math.abs(b.y - a.y) * H / 2).toFixed(2), finalMode, dpr };
+    },
     seek, live() { frozen = false; wake(); },
     setMusic(m) { bindMusic(m); },
     get state() { return { phase, u: uState.u, ribbon: rb.state, quality: qLevel, dpr, fps, seqT: seq?.t ?? 0, post: !!(post && Q.post > 0) }; },
@@ -1942,6 +2267,7 @@ export async function mountScroll(container, opts = {}) {
       get level() { return Q; },
       get adapt() { return { recovered, lockAt, lockUp, upgrades, warm: +fpsWin.warm.toFixed(2), good: fpsWin.good }; },
       get loopFlags() { return { ready, active, inView, raf: !!raf, disposed, frozen, hidden: document.hidden }; },
+      get variants() { return { ...variantReady, issued: [...compiledVariants] }; },
       /** Prueba determinista de la calidad adaptativa: alimenta adapt() con cuadros sintéticos [[fps, s], …]. */
       feed(seq) {
         foreignLong = 0; const out = [];

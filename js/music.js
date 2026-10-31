@@ -8,6 +8,7 @@
 // descanso → vuelve la caja y el bucle continúa en el ciclo 1 sin cortes (el planificador nunca se detiene).
 //
 // createMusic()  → { start, toggle, setMuted, playing, muted, duck, onBeat, sfx, analyser, dispose }
+//   sfx.quill(x 0..1) (PLUMA-WEB): raspado de pluma continuo, se llama cada cuadro; eng.sfx.quill(t, x) en el motor.
 // createEngine(ctx) construye todo el grafo sobre cualquier BaseAudioContext (también OfflineAudioContext).
 // renderOffline({ seconds }) y renderSfxOffline() devuelven AudioBuffer (pruebas y exportación .wav).
 
@@ -311,6 +312,24 @@ export function createEngine(ctx, opt = {}) {
         for (let i = 0; i < tmp.length; i++) put(i0 + i, a * tmp[i], p);
       } }), .9);
     },
+    quill() {                                        // PLUMA-WEB · raspado de pluma sobre pergamino (bucle sin costura de 2.4 s):
+      const D = 2.4, X = .06, o = blank(D + X);      // granos de fibra (impulsos cortísimos en banda 2.5–9 kHz, densidad que respira),
+      mix(o, layer(D + X, (n, put) => {              // siseo fino modulado y algún "enganche" de la punta en una fibra
+        for (let t = 0; t < D + X;) {
+          const dens = 260 + 340 * (.5 + .5 * Math.sin(t * 5.3 + 1.1) * Math.sin(t * 1.7));
+          t += -Math.log(1 - R() * .999) / dens;
+          const len = (.00015 + R() ** 2 * .0011) * sr | 0, f = svf(), g = gOf(2500 * 3.6 ** R()), k = 1 / (.7 + R() * 1.6), a = .15 + .85 * R() ** 3, p = (R() - .5) * .3, i0 = t * sr | 0;
+          for (let i = 0; i < len; i++) { f.run(n2() * Math.exp(-i / (len * .4 + 1)), g, k); put(i0 + i, a * f.bp, p); }
+        } }), 1);
+      mix(o, layer(D + X, (n, put) => { const f = svf(), g = gOf(4600); let m = .6, mt = .6;
+        for (let i = 0; i < n; i++) { if (i % 480 === 0) mt = .35 + .65 * R(); m += (mt - m) * .002; f.run(n2(), g, 1.1); put(i, f.bp * m); } }), .32);
+      mix(o, layer(D + X, (n, put) => { for (let j = 0; j < D * 7; j++) { const f = svf(), g = gOf(3200 + 3000 * R()), k = 1 / (10 + R() * 14), i0 = R() * D * sr | 0, a = .4 + .6 * R(), p = (R() - .5) * .3;
+        for (let i = 0; i < .01 * sr; i++) { f.run(i < 3 ? n2() : 0, g, k); put(i0 + i, a * f.bp, p); } } }), .35);
+      const m = Math.round(X * sr), N = Math.round(D * sr);  // cola → cabeza con fundido de igual potencia: el bucle no "clica"
+      const out = [new Float32Array(N), new Float32Array(N)];
+      for (let c = 0; c < 2; c++) { out[c].set(o[c].subarray(0, N)); for (let i = 0; i < m; i++) { const w = i / m; out[c][i] = o[c][i] * Math.sin(w * PI / 2) + o[c][N + i] * Math.cos(w * PI / 2); } }
+      return norm2(out, .9);
+    },
   };
   let swb = null;                                    // platillo suspendido con baqueta suave (crescendo hacia el clímax)
   const swellBuf = () => swb || (swb = { buf: mk(norm2(layer(3 * SPB + 2, (n, put) => { const f = svf(), h = svf(), up = 3 * SPB;
@@ -322,7 +341,28 @@ export function createEngine(ctx, opt = {}) {
     s.start(Math.max(0, t)); s.onended = () => g.disconnect(); return g;
   }
   function duck(a = .5, s = 1, t = ctx.currentTime) { a = clamp(+a || 0, 0, 1); s = Math.max(.05, +s || 1); for (const p of duckP) { hold(p, t); p.setTargetAtTime(1 - a, t, .06); p.setTargetAtTime(1, t + s, .4); } }
+  // PLUMA-WEB · raspado continuo: UNA voz en bucle (búfer synth.quill) → pasa-altos → realce 4 kHz → pasa-bajos → nivel. Cada llamada
+  // solo mueve nivel (≤ .18: muy bajo, ≈ −18 dB bajo el satén), velocidad de lectura (densidad y tono del grano) y brillo; si dejan de llamar, se apaga sola
+  // en ~0.15 s, y la voz se libera 1.5 s después de un 0.
+  let qv = null, qOff = 0;
+  function quillSet(t, x) {
+    x = clamp(+x || 0, 0, 1);
+    if (!qv) {
+      if (x < .01) return;
+      const src = ctx.createBufferSource(); src.buffer = mk(take('quill', synth.quill)); src.loop = true;
+      const hp = F('highpass', 1500, .7), pk = F('peaking', 4200, 1, 3), lp = F('lowpass', 9500, .6), g = G(0);
+      chain(src, hp, pk, lp, g); g.connect(sfxD); if (fxReady) g.connect(G(.08, roomIn));
+      src.start(t, R() * 2); qv = { src, g, pk, lp };
+    }
+    if (typeof clearTimeout === 'function') clearTimeout(qOff);
+    const v = qv, lvl = .18 * x ** 1.2;
+    hold(v.g.gain, t); v.g.gain.setTargetAtTime(lvl, t, .022); v.g.gain.setTargetAtTime(0, t + .14, .04);
+    hold(v.src.playbackRate, t); v.src.playbackRate.setTargetAtTime(.72 + .62 * x, t, .05);
+    hold(v.pk.frequency, t); v.pk.frequency.setTargetAtTime(3300 + 2400 * x, t, .05);
+    if (x < .01 && typeof setTimeout === 'function') qOff = setTimeout(() => { if (qv !== v) return; try { v.src.stop(); } catch { /* */ } v.g.disconnect(); qv = null; }, 1500);
+  }
   const sfx = {
+    quill: (t, x) => quillSet(t, x),
     sealCrack: t => { fire(take('crack', synth.crack), t, .95, .3, .05); duck(.45, .9, t); },
     ribbonSwish: t => { fire(take('swish', synth.swish), t, .5, .3, .12); duck(.25, .7, t); },
     paperUnroll: (t, sec = 2.4) => { sec = clamp(+sec || 2.4, .4, 8); fire(take('paper' + sec.toFixed(2), () => synth.paper(sec)), t, 1, .3, .08); duck(.3, sec, t); },
@@ -344,6 +384,7 @@ export function createEngine(ctx, opt = {}) {
       }
       yield () => { cache.crack = cache.crack || synth.crack(); };
       for (const sec of [2.392, 2.4]) yield () => { const k = 'paper' + sec.toFixed(2); cache[k] = cache[k] || synth.paper(sec); }; // scroll3d: 2.6 × 0.92
+      yield () => { cache.quill = cache.quill || synth.quill(); };   // raspado de la pluma (PLUMA-WEB)
       return;
     }
     for (let c = 0; c < PLAN.length; c++) {
@@ -481,6 +522,12 @@ export function createMusic({ background = true, idle: idleGate = null } = {}) {
     if (muted || !ensure() || ctx.state === 'closed') return;
     resume();
     try { eng.sfx[k](ctx.currentTime + .01, ...a); } catch (e) { console.warn('[music] sfx', k, e); }
+  };
+  /** PLUMA-WEB · sfx.quill(intensidad 0..1): raspado de pluma continuo y muy sutil. Se llama CADA CUADRO mientras la pluma escribe
+   *  (0 = levantada); se apaga sola si dejan de llamarla. Nunca crea ni reanuda el AudioContext (solo suena si ya está sonando). */
+  sfx.quill = (x) => {
+    if (!ctx || !eng || ctx.state !== 'running') return;
+    try { eng.sfx.quill(ctx.currentTime + .005, muted ? 0 : x); } catch (e) { console.warn('[music] sfx quill', e); }
   };
   return {
     start, toggle, setMuted, sfx,

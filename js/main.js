@@ -225,12 +225,29 @@ async function loadScroll() {
     state.scrollReadyAt = performance.now();
     els.scrollStage.classList.add('is-live');
     parchWait(false);
+    measureParchSafe(); // ESCENA: zona de los CTA / botón de música para el encuadre de lectura y el final
     state.parchVisible = null; onScroll();
+    loadQuill(s);
     return s;
   } catch (e) {
     console.warn('[inv] pergamino 3D no disponible, uso tarjeta HTML:', e?.message || e);
     scrollFallback(); return null;
   }
+}
+
+/** ESCENA · pluma visible (js/pluma.js de PLUMA-WEB) enganchada a scroll3d con attachQuill (precompila, coloca el tintero en
+ *  su lugar reservado y la mueve con la escritura). UNIR: activarla por defecto cambiando QUILL_ON a `qs.get('pluma') !== '0'`.
+ *  Hoy solo con ?pluma=1 (mientras PLUMA-WEB termina). Si falla, la escritura sigue con la pluma invisible. */
+const QUILL_ON = qs.get('pluma') === '1';
+async function loadQuill(s) {
+  if (!QUILL_ON || !s?.attachQuill) return;
+  try {
+    const [{ createQuill }, THREE] = await Promise.all([import('./pluma.js'), import('three')]);
+    await idleSlot();
+    const q = await createQuill({ THREE, parchment: s.parchment, reducedMotion: REDUCED, music: state.music || undefined, light: s.debug?.key });
+    if (state.scroll !== s) { try { q.dispose?.(); } catch {} return; }
+    await s.attachQuill(q);
+  } catch (e) { console.warn('[inv] pluma no disponible:', e?.message || e); }
 }
 
 /** Trabajo pesado de fondo (montar el pergamino): espera a que no haya una animación protagonista en curso (desde el toque
@@ -586,6 +603,7 @@ function revealHero() {
 /* Pergamino                                                                 */
 /* ------------------------------------------------------------------------ */
 function onOpenStart() {
+  measureParchSafe();
   if (gsap) { gsap.killTweensOf(els.hint); gsap.set(els.hint, { clearProps: 'opacity,transform' }); }
   els.hint.classList.add('is-hidden');
   els.hint.setAttribute('aria-expanded', 'true');
@@ -596,6 +614,7 @@ function onOpenStart() {
 async function openParchment(source) {
   if (state.opening || state.opened) return;
   state.opening = true;
+  onScroll(); // ESCENA: degradados y html.parch-reading al estado de lectura aunque el invitado no vuelva a desplazarse
   // si el pergamino 3D aún se está montando (conexión lenta), se espera a que esté listo o se usa la tarjeta HTML.
   // PERF: mientras tanto el botón NO desaparece: queda "preparando" (sello que late + anillo de progreso) y el montaje
   // deja de ceder el paso (busyUntil = 0); en cuanto está listo, la apertura sigue sola.
@@ -637,6 +656,7 @@ async function openParchment(source) {
 function handleOpened() {
   if (state.opened) return;
   state.opened = true; state.opening = false;
+  onScroll();
   onOpenStart();
   els.ctas.hidden = false;
   // FIX: el botón "Abrir el pergamino" ya no sirve: sale del orden de tabulación y el foco pasa a "Cómo llegar"
@@ -655,7 +675,45 @@ function handleOpened() {
 /* ------------------------------------------------------------------------ */
 let lastHeroP = -1, ticking = false, autoOpenArmed = true;
 const PARCH_OUT = .18; // PERF-RETOMA: fracción de pantalla bajo la cual el pergamino que sale por arriba se pausa
-const fadeTop = $('.parch__fade--top');
+const fadeTop = $('.parch__fade--top'), fadeBot = $('.parch__fade--bottom');
+
+/* ESCENA · freno: mientras la secuencia del pergamino no termina (todo escrito, alejado y con los CTA), la sección fija no se
+ * suelta: si al bajar quedan menos de 0.9 pantallas de recorrido fijo, la sección se alarga (--parch-extra) y la escena
+ * acelera con tope hasta alcanzar al scroll. No mueve el scroll (sin secuestro): solo alarga la página por debajo de lo que
+ * se ve. Un salto que ya dejó atrás la sección (tecla Fin, barra de desplazamiento) no la alarga. El alargue se conserva. */
+let parchExtra = 0;
+function parchBrake(pr, vh) {
+  const sc = state.scroll;
+  if (!sc || state.fallbackScroll || !state.opening || state.opened) return;
+  let sq = null; try { sq = sc.sequence; } catch {}
+  if (!sq || sq.done) return;
+  if (pr.top > 0 || pr.bottom < vh) return; // aún no fija, o ya soltada (salto): no se alarga
+  const left = pr.bottom - vh, margin = vh * .9;
+  if (left >= margin) return;
+  const step = vh * .25, add = Math.ceil((margin - left) / step) * step;
+  parchExtra = Math.round(parchExtra + add);
+  els.parch.style.setProperty('--parch-extra', parchExtra + 'px');
+  refreshTriggers(500);
+}
+
+/* ESCENA · zona segura del encuadre de lectura/final: lo que tapan los CTA (abajo en móvil y tableta, columna a la derecha en
+ * escritorio ancho) y el botón de música (arriba a la derecha en móvil). Los CTA están maquetados aunque ocultos
+ * (visibility), así que se miden siempre. */
+function measureParchSafe() {
+  const sc = state.scroll;
+  if (!sc?.setSafeArea) return;
+  const st = els.scrollStage.getBoundingClientRect();
+  if (!st.width || !st.height) return;
+  const out = { top: 0, bottom: 0, left: 0, right: 0 };
+  const r = els.ctas.getBoundingClientRect();
+  if (r.width && r.height) {
+    const cx = (r.left + r.right) / 2 - st.left;
+    if (r.height < st.height * .6 && r.width < st.width * .45 && cx > st.width * .6) out.right = Math.max(0, st.right - r.left + 16);
+    else out.bottom = Math.max(0, st.bottom - r.top + 12);
+  }
+  // (el botón de música, arriba a la derecha en móvil, solo roza la varilla superior: no reserva zona)
+  try { sc.setSafeArea(out); } catch {}
+}
 function onScroll() {
   if (ticking) return;
   ticking = true;
@@ -688,13 +746,26 @@ function update() {
   }
   // FIX: el degradado superior tapa el borde del lienzo 3D mientras ese borde está en pantalla (pr.top > 0); solo se
   // aclara cuando la sección ya quedó fija arriba (antes se aclaraba antes y se veía una línea dura sobre la vela).
-  if (!state.fallbackScroll) fadeTop.style.opacity = (pr.top > 0 ? 1 : .42 + .58 * clamp(1 + pr.top / (vh * .35))).toFixed(3);
-  const span = Math.max(1, pr.height - vh);
+  // ESCENA: con el pergamino abierto (lectura) los degradados se retiran del todo mientras la sección está fija: el de arriba
+  // tapaba el antetítulo y el de abajo los últimos renglones; el de abajo vuelve justo cuando la sección se suelta.
+  const reading = !state.fallbackScroll && !!state.scroll && (state.opening || state.opened);
+  if (!state.fallbackScroll) {
+    fadeTop.style.opacity = (pr.top > 0 ? 1 : reading ? 0 : .42 + .58 * clamp(1 + pr.top / (vh * .35))).toFixed(3);
+    fadeBot.style.opacity = (reading ? clamp((vh - pr.bottom) / (vh * .06)) : 1).toFixed(3);
+  }
+  html.classList.toggle('parch-reading', reading && pr.top <= 0 && pr.bottom > vh * .35);
+  // ESCENA: recorrido fijo SIN el alargue del freno (el mapeo scroll → secuencia no cambia al alargar la sección)
+  const span = Math.max(1, pr.height - vh - parchExtra);
   const pp = clamp(-pr.top / span);
-  if (state.entered && autoOpenArmed && !state.fallbackScroll && pp > .5 && !state.opened && !state.opening && (state.scroll)) {
+  // ritmo de la secuencia = max(tiempo, scroll): scroll3d acelera (con tope) si el scroll va por delante
+  if (state.scroll && pr.top <= 0) { try { state.scroll.setScrollProgress(pp); } catch {} }
+  // ESCENA: apertura automática apenas la sección queda fija (antes a mitad del recorrido: el pergamino salía de pantalla
+  // antes de escribirse). También abren el sello y el botón.
+  if (state.entered && autoOpenArmed && !state.fallbackScroll && pr.top <= 2 && pr.bottom > vh * .5 && !state.opened && !state.opening && state.scroll) {
     autoOpenArmed = false;
     openParchment('auto');
   }
+  parchBrake(pr, vh);
   // Polvo de oro: solo en secciones sin 3D
   const story = $('#historia').getBoundingClientRect();
   dust?.setEnabled(story.top < vh * .9 || state.fallbackScroll && pr.top < vh * .5);
@@ -703,7 +774,7 @@ function update() {
 /* ------------------------------------------------------------------------ */
 /* Arranque                                                                  */
 /* ------------------------------------------------------------------------ */
-let dust = null, musicUI = null, kinetic = null, gate = null, musicP, ringsP, scrollP, gateP;
+let dust = null, musicUI = null, kinetic = null, gate = null, musicP, ringsP, scrollP, gateP, safeT = 0;
 // referencia-4.jpg es una captura de pantalla con flechas, puntos de carrusel y bordes: se recorta al mostrarla.
 const PHOTO_CROPS = { 'assets/photos/referencia-4.jpg': [50 / 703, 0, 598 / 703, 782 / 827] };
 
@@ -779,7 +850,7 @@ function boot() {
   els.hint.addEventListener('click', () => openParchment('button'));
   // Si el usuario toca el sello en 3D, scroll3d abre por su cuenta: lo detectamos por isOpen
   els.scrollStage.addEventListener('pointerup', () => {
-    setTimeout(() => { if (state.scroll?.isOpen && !state.opening && !state.opened) { state.opening = true; onOpenStart(); } }, 200);
+    setTimeout(() => { if (state.scroll?.isOpen && !state.opening && !state.opened) { state.opening = true; onOpenStart(); onScroll(); } }, 200);
   });
 
   // Tarjeta legible
@@ -807,6 +878,7 @@ function boot() {
   addEventListener('resize', () => {
     onScroll();
     if (state.revealed) layoutLetters(els.names);
+    clearTimeout(safeT); safeT = setTimeout(measureParchSafe, 120);
   }, { passive: true });
   update();
 
