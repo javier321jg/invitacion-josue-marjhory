@@ -417,14 +417,20 @@ vec3 velvet(vec2 uv, float asp){
 }
 // CREMA (decisión n.º 9.1): estudio de papel crema en espacio de pantalla (sRGB), como la puerta: charco de luz marfil detrás de
 // los anillos, borde apenas tostado y fibra de papel sutil (del mismo patrón horneado).
+// Pedido del usuario (31/10 18:55): detrás de los anillos el fondo debe ser más OSCURO y aclararse a crema hacia los bordes, porque el
+// crema claro opacaba el oro. Núcleo cacao/bronce cálido que sigue a los anillos (uPool) y se funde suave al crema de la página.
 vec3 creamBg(vec2 uv, float asp){
   vec2 q = vec2((uv.x - 0.5) * asp, uv.y - 0.5) + uPar;
   vec3 v = texture2D(tVelvet, vec2(q.x / 3.2 + 0.5, q.y / 1.3 + 0.5)).rgb;
   vec2 dp = (uv - uPool) * vec2(asp, 1.0);
-  float d2 = dot(dp, dp);
-  float pool = exp(-d2 / (uPoolR * uPoolR * 1.6)), halo = exp(-d2 / (uPoolR * uPoolR * 7.0));
-  vec3 col = mix(vec3(0.905, 0.855, 0.765), vec3(0.945, 0.910, 0.845), halo);
-  col = mix(col, vec3(0.985, 0.965, 0.925), pool * 0.75 * uLift);
+  float d = length(dp) / max(uPoolR, 0.05);                 // 1 = radio del charco de luz de los anillos
+  float halo = exp(-d * d / 7.0);
+  vec3 edge = mix(vec3(0.905, 0.855, 0.765), vec3(0.945, 0.910, 0.845), halo);
+  float core = 1.0 - smoothstep(0.0, 1.85, d);
+  core = core * core * (3.0 - 2.0 * core);
+  vec3 dark = mix(vec3(0.155, 0.108, 0.075), vec3(0.34, 0.25, 0.17), smoothstep(0.15, 1.05, d));
+  dark += vec3(0.11, 0.075, 0.035) * exp(-pow(d - 0.62, 2.0) * 9.0) * uLift;   // aro de luz cálida tenue detrás del oro
+  vec3 col = mix(edge, dark, core);
   col *= 0.985 + 0.03 * (v.b - 0.5) + 0.012 * (v.r - 0.5);
   return mix(vec3(0.95, 0.918, 0.852), col, uBgDim);
 }
