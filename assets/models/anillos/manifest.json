@@ -1,0 +1,1511 @@
+{
+ "version": 1,
+ "generator": "BL-RINGS (blender/anillos_prep.py, anillos_pair.py, anillos_manifest.py)",
+ "units": "meters",
+ "frame": "three.js Y-up. Anillo local: centro del aro en el origen, agujero (eje del aro) = ±Z, cabeza/piedra principal hacia +Y.",
+ "nodes": "Cada GLB: nodo raíz <name> (extras: kind, outerDiameter) > hijos \"metal\" (1 malla, material \"metal\") y \"gema_00\"..\"gema_NN\" (1 malla por gema, origen en el centro de la gema; gema_00 = la más grande; extras: cut, size).",
+ "materials": {
+  "metal": {
+   "baseColor": "#e6c27a",
+   "metalness": 1.0,
+   "roughness": 0.12
+  },
+  "gema": {
+   "baseColor": "#ffffff",
+   "transmission": 1.0,
+   "ior": 2.42,
+   "roughness": 0.0,
+   "note": "GLB trae KHR_materials_transmission + KHR_materials_ior (2.42); GLTFLoader r170 deja ior=2.42 (verificado). La documentación de three da ior en [1, 2.333]: si se ve raro, usa 2.333 + dispersion (r163+) o un shader de refracción por gema (cada gema es su propia malla centrada)."
+  }
+ },
+ "rings": [
+  {
+   "name": "ring-halo",
+   "label": "Halo: brillante central rodeado de brillantes, aro pavé",
+   "file": "ring-halo.glb",
+   "kind": "compromiso",
+   "bytes": 2076376,
+   "triangles": 71360,
+   "metalTriangles": 66390,
+   "gemTriangles": 4970,
+   "decimated": false,
+   "srcMetalTriangles": 66390,
+   "bbox": {
+    "min": [
+     -0.010213,
+     -0.010434,
+     -0.0049
+    ],
+    "max": [
+     0.010212,
+     0.014676,
+     0.0049
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.017697,
+   "bandThickness": 0.001652,
+   "bandWidth": 0.002489,
+   "headTop": 0.014676,
+   "gemCount": 35,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "round",
+     "center": [
+      -0.0,
+      0.012488,
+      -0.0
+     ],
+     "size": 0.007293
+    },
+    {
+     "node": "gema_01",
+     "cut": "round",
+     "center": [
+      -0.004526,
+      0.009658,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_02",
+     "cut": "round",
+     "center": [
+      0.004526,
+      0.009658,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_03",
+     "cut": "round",
+     "center": [
+      -0.005764,
+      0.007537,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_04",
+     "cut": "round",
+     "center": [
+      0.005764,
+      0.007537,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_05",
+     "cut": "round",
+     "center": [
+      -0.007285,
+      0.00561,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_06",
+     "cut": "round",
+     "center": [
+      0.007285,
+      0.00561,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_07",
+     "cut": "round",
+     "center": [
+      -0.008547,
+      0.003709,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_08",
+     "cut": "round",
+     "center": [
+      0.008547,
+      0.003709,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_09",
+     "cut": "round",
+     "center": [
+      -0.009308,
+      0.001518,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_10",
+     "cut": "round",
+     "center": [
+      0.009308,
+      0.001518,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_11",
+     "cut": "round",
+     "center": [
+      -0.009477,
+      -0.000811,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_12",
+     "cut": "round",
+     "center": [
+      0.009477,
+      -0.000811,
+      -0.0
+     ],
+     "size": 0.002192
+    },
+    {
+     "node": "gema_13",
+     "cut": "round",
+     "center": [
+      -0.001416,
+      0.010218,
+      -0.001382
+     ],
+     "size": 0.001286
+    },
+    {
+     "node": "gema_14",
+     "cut": "round",
+     "center": [
+      -0.001382,
+      0.010218,
+      0.001416
+     ],
+     "size": 0.001286
+    },
+    {
+     "node": "gema_15",
+     "cut": "round",
+     "center": [
+      0.001382,
+      0.010218,
+      -0.001416
+     ],
+     "size": 0.001286
+    },
+    {
+     "node": "gema_16",
+     "cut": "round",
+     "center": [
+      0.001416,
+      0.010218,
+      0.001382
+     ],
+     "size": 0.001286
+    },
+    {
+     "node": "gema_17",
+     "cut": "round",
+     "center": [
+      -0.0,
+      0.012494,
+      -0.004263
+     ],
+     "size": 0.001221
+    },
+    {
+     "node": "gema_18",
+     "cut": "round",
+     "center": [
+      -0.0,
+      0.012494,
+      0.004263
+     ],
+     "size": 0.001221
+    },
+    {
+     "node": "gema_19",
+     "cut": "round",
+     "center": [
+      -0.004198,
+      0.012494,
+      0.00074
+     ],
+     "size": 0.00122
+    },
+    {
+     "node": "gema_20",
+     "cut": "round",
+     "center": [
+      -0.004198,
+      0.012494,
+      -0.00074
+     ],
+     "size": 0.00122
+    },
+    {
+     "node": "gema_21",
+     "cut": "round",
+     "center": [
+      0.004198,
+      0.012494,
+      0.00074
+     ],
+     "size": 0.00122
+    },
+    {
+     "node": "gema_22",
+     "cut": "round",
+     "center": [
+      0.004198,
+      0.012494,
+      -0.00074
+     ],
+     "size": 0.00122
+    },
+    {
+     "node": "gema_23",
+     "cut": "round",
+     "center": [
+      -0.001458,
+      0.012494,
+      0.004006
+     ],
+     "size": 0.001216
+    },
+    {
+     "node": "gema_24",
+     "cut": "round",
+     "center": [
+      -0.001458,
+      0.012494,
+      -0.004006
+     ],
+     "size": 0.001216
+    },
+    {
+     "node": "gema_25",
+     "cut": "round",
+     "center": [
+      0.001458,
+      0.012494,
+      -0.004006
+     ],
+     "size": 0.001216
+    },
+    {
+     "node": "gema_26",
+     "cut": "round",
+     "center": [
+      0.001458,
+      0.012494,
+      0.004006
+     ],
+     "size": 0.001216
+    },
+    {
+     "node": "gema_27",
+     "cut": "round",
+     "center": [
+      -0.003692,
+      0.012494,
+      -0.002132
+     ],
+     "size": 0.001207
+    },
+    {
+     "node": "gema_28",
+     "cut": "round",
+     "center": [
+      -0.003692,
+      0.012494,
+      0.002131
+     ],
+     "size": 0.001207
+    },
+    {
+     "node": "gema_29",
+     "cut": "round",
+     "center": [
+      0.003692,
+      0.012494,
+      -0.002132
+     ],
+     "size": 0.001207
+    },
+    {
+     "node": "gema_30",
+     "cut": "round",
+     "center": [
+      0.003692,
+      0.012494,
+      0.002131
+     ],
+     "size": 0.001207
+    },
+    {
+     "node": "gema_31",
+     "cut": "round",
+     "center": [
+      -0.00274,
+      0.012494,
+      0.003265
+     ],
+     "size": 0.001201
+    },
+    {
+     "node": "gema_32",
+     "cut": "round",
+     "center": [
+      -0.00274,
+      0.012494,
+      -0.003266
+     ],
+     "size": 0.001201
+    },
+    {
+     "node": "gema_33",
+     "cut": "round",
+     "center": [
+      0.00274,
+      0.012494,
+      -0.003266
+     ],
+     "size": 0.001201
+    },
+    {
+     "node": "gema_34",
+     "cut": "round",
+     "center": [
+      0.00274,
+      0.012494,
+      0.003265
+     ],
+     "size": 0.001201
+    }
+   ],
+   "preview": "assets/render/anillos/ring-halo.png"
+  },
+  {
+   "name": "ring1-princess",
+   "label": "Solitario talla princesa, carril de brillantes",
+   "file": "ring1-princess.glb",
+   "kind": "compromiso",
+   "bytes": 924104,
+   "triangles": 40374,
+   "metalTriangles": 39160,
+   "gemTriangles": 1214,
+   "decimated": false,
+   "srcMetalTriangles": 39160,
+   "bbox": {
+    "min": [
+     -0.010365,
+     -0.01047,
+     -0.003488
+    ],
+    "max": [
+     0.010365,
+     0.015101,
+     0.003487
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.018136,
+   "bandThickness": 0.001432,
+   "bandWidth": 0.00232,
+   "headTop": 0.015101,
+   "gemCount": 9,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "princess",
+     "center": [
+      -0.0,
+      0.012643,
+      -0.0
+     ],
+     "size": 0.006431
+    },
+    {
+     "node": "gema_01",
+     "cut": "round",
+     "center": [
+      -0.005959,
+      0.008409,
+      -0.0
+     ],
+     "size": 0.002691
+    },
+    {
+     "node": "gema_02",
+     "cut": "round",
+     "center": [
+      0.005959,
+      0.008409,
+      -0.0
+     ],
+     "size": 0.002691
+    },
+    {
+     "node": "gema_03",
+     "cut": "round",
+     "center": [
+      -0.007724,
+      0.006473,
+      -0.0
+     ],
+     "size": 0.002552
+    },
+    {
+     "node": "gema_04",
+     "cut": "round",
+     "center": [
+      0.007724,
+      0.006473,
+      -0.0
+     ],
+     "size": 0.002552
+    },
+    {
+     "node": "gema_05",
+     "cut": "round",
+     "center": [
+      -0.008825,
+      0.004492,
+      -0.0
+     ],
+     "size": 0.002049
+    },
+    {
+     "node": "gema_06",
+     "cut": "round",
+     "center": [
+      0.008825,
+      0.004492,
+      -0.0
+     ],
+     "size": 0.002049
+    },
+    {
+     "node": "gema_07",
+     "cut": "round",
+     "center": [
+      -0.004142,
+      0.009558,
+      -0.0
+     ],
+     "size": 0.001685
+    },
+    {
+     "node": "gema_08",
+     "cut": "round",
+     "center": [
+      0.004142,
+      0.009558,
+      -0.0
+     ],
+     "size": 0.001685
+    }
+   ],
+   "preview": "assets/render/anillos/ring1-princess.png"
+  },
+  {
+   "name": "ring1-marquise",
+   "label": "Solitario talla marquesa, carril de brillantes",
+   "file": "ring1-marquise.glb",
+   "kind": "compromiso",
+   "bytes": 906152,
+   "triangles": 39290,
+   "metalTriangles": 38040,
+   "gemTriangles": 1250,
+   "decimated": false,
+   "srcMetalTriangles": 38040,
+   "bbox": {
+    "min": [
+     -0.010365,
+     -0.01047,
+     -0.00534
+    ],
+    "max": [
+     0.010365,
+     0.01276,
+     0.005339
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.018136,
+   "bandThickness": 0.001432,
+   "bandWidth": 0.00232,
+   "headTop": 0.01276,
+   "gemCount": 9,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "marquise",
+     "center": [
+      0.0,
+      0.011129,
+      -0.0
+     ],
+     "size": 0.010226
+    },
+    {
+     "node": "gema_01",
+     "cut": "round",
+     "center": [
+      -0.005959,
+      0.008409,
+      -0.0
+     ],
+     "size": 0.002691
+    },
+    {
+     "node": "gema_02",
+     "cut": "round",
+     "center": [
+      0.005959,
+      0.008409,
+      -0.0
+     ],
+     "size": 0.002691
+    },
+    {
+     "node": "gema_03",
+     "cut": "round",
+     "center": [
+      -0.007724,
+      0.006473,
+      -0.0
+     ],
+     "size": 0.002552
+    },
+    {
+     "node": "gema_04",
+     "cut": "round",
+     "center": [
+      0.007724,
+      0.006473,
+      -0.0
+     ],
+     "size": 0.002552
+    },
+    {
+     "node": "gema_05",
+     "cut": "round",
+     "center": [
+      -0.008825,
+      0.004492,
+      -0.0
+     ],
+     "size": 0.002049
+    },
+    {
+     "node": "gema_06",
+     "cut": "round",
+     "center": [
+      0.008825,
+      0.004492,
+      -0.0
+     ],
+     "size": 0.002049
+    },
+    {
+     "node": "gema_07",
+     "cut": "round",
+     "center": [
+      -0.004142,
+      0.009558,
+      -0.0
+     ],
+     "size": 0.001685
+    },
+    {
+     "node": "gema_08",
+     "cut": "round",
+     "center": [
+      0.004142,
+      0.009558,
+      -0.0
+     ],
+     "size": 0.001685
+    }
+   ],
+   "preview": "assets/render/anillos/ring1-marquise.png"
+  },
+  {
+   "name": "ring3",
+   "label": "Trilogía: tres brillantes en garras",
+   "file": "ring3.glb",
+   "kind": "compromiso",
+   "bytes": 2124004,
+   "triangles": 115921,
+   "metalTriangles": 115495,
+   "gemTriangles": 426,
+   "decimated": true,
+   "srcMetalTriangles": 185355,
+   "bbox": {
+    "min": [
+     -0.010533,
+     -0.0105,
+     -0.002806
+    ],
+    "max": [
+     0.010533,
+     0.012345,
+     0.002806
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.018528,
+   "bandThickness": 0.001236,
+   "bandWidth": 0.002571,
+   "headTop": 0.012345,
+   "gemCount": 3,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "round",
+     "center": [
+      0.002969,
+      0.010817,
+      0.001141
+     ],
+     "size": 0.003126
+    },
+    {
+     "node": "gema_01",
+     "cut": "round",
+     "center": [
+      -0.002948,
+      0.010773,
+      -0.001162
+     ],
+     "size": 0.003126
+    },
+    {
+     "node": "gema_02",
+     "cut": "round",
+     "center": [
+      0.0,
+      0.011101,
+      -0.0
+     ],
+     "size": 0.003125
+    }
+   ],
+   "preview": "assets/render/anillos/ring3.png"
+  },
+  {
+   "name": "ring-jonc",
+   "label": "Alianza lisa abombada (jonc) con un brillante embutido",
+   "file": "ring-jonc.glb",
+   "kind": "alianza",
+   "bytes": 129932,
+   "triangles": 6466,
+   "metalTriangles": 6324,
+   "gemTriangles": 142,
+   "decimated": false,
+   "srcMetalTriangles": 6324,
+   "bbox": {
+    "min": [
+     -0.010788,
+     -0.010502,
+     -0.002582
+    ],
+    "max": [
+     0.010789,
+     0.013194,
+     0.002582
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.018149,
+   "bandThickness": 0.001426,
+   "bandWidth": 0.003408,
+   "headTop": 0.013194,
+   "gemCount": 1,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "round",
+     "center": [
+      1e-06,
+      0.012121,
+      0.0
+     ],
+     "size": 0.003575
+    }
+   ],
+   "preview": "assets/render/anillos/ring-jonc.png"
+  },
+  {
+   "name": "ring-full",
+   "label": "Alianza eterna de esmeraldas y brillantes",
+   "file": "ring-full.glb",
+   "kind": "alianza",
+   "bytes": 1185336,
+   "triangles": 33218,
+   "metalTriangles": 23664,
+   "gemTriangles": 9554,
+   "decimated": false,
+   "srcMetalTriangles": 23664,
+   "bbox": {
+    "min": [
+     -0.01049,
+     -0.010493,
+     -0.002514
+    ],
+    "max": [
+     0.010491,
+     0.010471,
+     0.002513
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.016127,
+   "bandThickness": 0.002436,
+   "bandWidth": 0.005027,
+   "headTop": 0.010471,
+   "gemCount": 82,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "round",
+     "center": [
+      -6e-06,
+      0.009753,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_01",
+     "cut": "round",
+     "center": [
+      -0.002331,
+      0.00956,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_02",
+     "cut": "round",
+     "center": [
+      0.002318,
+      0.00956,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_03",
+     "cut": "round",
+     "center": [
+      -0.00453,
+      0.00886,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_04",
+     "cut": "round",
+     "center": [
+      0.004517,
+      0.00886,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_05",
+     "cut": "round",
+     "center": [
+      0.006473,
+      0.00772,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_06",
+     "cut": "round",
+     "center": [
+      -0.006486,
+      0.00772,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_07",
+     "cut": "round",
+     "center": [
+      0.008039,
+      0.006025,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_08",
+     "cut": "round",
+     "center": [
+      -0.008052,
+      0.006025,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_09",
+     "cut": "round",
+     "center": [
+      0.009064,
+      0.003998,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_10",
+     "cut": "round",
+     "center": [
+      -0.009077,
+      0.003998,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_11",
+     "cut": "round",
+     "center": [
+      0.009646,
+      0.001756,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_12",
+     "cut": "round",
+     "center": [
+      -0.009658,
+      0.001756,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_13",
+     "cut": "round",
+     "center": [
+      0.009742,
+      -0.000581,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_14",
+     "cut": "round",
+     "center": [
+      -0.009755,
+      -0.000581,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_15",
+     "cut": "round",
+     "center": [
+      -0.009431,
+      -0.002885,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_16",
+     "cut": "round",
+     "center": [
+      0.009419,
+      -0.002885,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_17",
+     "cut": "round",
+     "center": [
+      -0.00862,
+      -0.005034,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_18",
+     "cut": "round",
+     "center": [
+      0.008607,
+      -0.005034,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_19",
+     "cut": "round",
+     "center": [
+      0.007326,
+      -0.006912,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_20",
+     "cut": "round",
+     "center": [
+      -0.007338,
+      -0.006912,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_21",
+     "cut": "round",
+     "center": [
+      -0.005545,
+      -0.008338,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_22",
+     "cut": "round",
+     "center": [
+      0.005533,
+      -0.008338,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_23",
+     "cut": "round",
+     "center": [
+      -0.003454,
+      -0.009258,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_24",
+     "cut": "round",
+     "center": [
+      0.003441,
+      -0.009258,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_25",
+     "cut": "round",
+     "center": [
+      -0.001177,
+      -0.009711,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_26",
+     "cut": "round",
+     "center": [
+      0.001164,
+      -0.009711,
+      -0.0
+     ],
+     "size": 0.002394
+    },
+    {
+     "node": "gema_27",
+     "cut": "emerald",
+     "center": [
+      -0.003208,
+      0.008801,
+      0.00169
+     ],
+     "size": 0.002289
+    },
+    {
+     "node": "gema_28",
+     "cut": "emerald",
+     "center": [
+      0.003195,
+      0.008801,
+      -0.00169
+     ],
+     "size": 0.002289
+    },
+    {
+     "node": "gema_29",
+     "cut": "emerald",
+     "center": [
+      0.003195,
+      0.008801,
+      0.00169
+     ],
+     "size": 0.002289
+    },
+    {
+     "node": "gema_30",
+     "cut": "emerald",
+     "center": [
+      -0.003208,
+      0.008801,
+      -0.00169
+     ],
+     "size": 0.002289
+    },
+    {
+     "node": "gema_31",
+     "cut": "emerald",
+     "center": [
+      -0.008973,
+      0.00269,
+      0.00169
+     ],
+     "size": 0.002287
+    },
+    {
+     "node": "gema_32",
+     "cut": "emerald",
+     "center": [
+      -0.008973,
+      0.00269,
+      -0.00169
+     ],
+     "size": 0.002287
+    },
+    {
+     "node": "gema_33",
+     "cut": "emerald",
+     "center": [
+      0.00896,
+      0.00269,
+      0.00169
+     ],
+     "size": 0.002287
+    },
+    {
+     "node": "gema_34",
+     "cut": "emerald",
+     "center": [
+      0.00896,
+      0.00269,
+      -0.00169
+     ],
+     "size": 0.002287
+    },
+    {
+     "node": "gema_35",
+     "cut": "emerald",
+     "center": [
+      0.008588,
+      -0.003702,
+      -0.00169
+     ],
+     "size": 0.002283
+    },
+    {
+     "node": "gema_36",
+     "cut": "emerald",
+     "center": [
+      -0.008601,
+      -0.003702,
+      -0.00169
+     ],
+     "size": 0.002283
+    },
+    {
+     "node": "gema_37",
+     "cut": "emerald",
+     "center": [
+      -0.008601,
+      -0.003702,
+      0.00169
+     ],
+     "size": 0.002283
+    },
+    {
+     "node": "gema_38",
+     "cut": "emerald",
+     "center": [
+      0.008588,
+      -0.003702,
+      0.00169
+     ],
+     "size": 0.002283
+    },
+    {
+     "node": "gema_39",
+     "cut": "emerald",
+     "center": [
+      -0.002165,
+      -0.009102,
+      -0.00169
+     ],
+     "size": 0.002277
+    }
+   ],
+   "preview": "assets/render/anillos/ring-full.png"
+  },
+  {
+   "name": "ring-leaves",
+   "label": "Anillo abierto de hojas con marquesas",
+   "file": "ring-leaves.glb",
+   "kind": "otro",
+   "bytes": 2836760,
+   "triangles": 83900,
+   "metalTriangles": 81520,
+   "gemTriangles": 2380,
+   "decimated": true,
+   "srcMetalTriangles": 235702,
+   "bbox": {
+    "min": [
+     -0.011155,
+     -0.010499,
+     -0.004332
+    ],
+    "max": [
+     0.010499,
+     0.010366,
+     0.00433
+    ]
+   },
+   "outerDiameter": 0.021,
+   "innerDiameter": 0.017876,
+   "bandThickness": 0.001562,
+   "bandWidth": 0.003533,
+   "headTop": 0.010366,
+   "gemCount": 17,
+   "gems": [
+    {
+     "node": "gema_00",
+     "cut": "marquise",
+     "center": [
+      0.006122,
+      0.008017,
+      0.002525
+     ],
+     "size": 0.003092
+    },
+    {
+     "node": "gema_01",
+     "cut": "marquise",
+     "center": [
+      0.003653,
+      0.009207,
+      0.00258
+     ],
+     "size": 0.003076
+    },
+    {
+     "node": "gema_02",
+     "cut": "marquise",
+     "center": [
+      0.006165,
+      0.007944,
+      -0.002614
+     ],
+     "size": 0.00302
+    },
+    {
+     "node": "gema_03",
+     "cut": "marquise",
+     "center": [
+      0.003677,
+      0.009134,
+      -0.002554
+     ],
+     "size": 0.002997
+    },
+    {
+     "node": "gema_04",
+     "cut": "marquise",
+     "center": [
+      -0.001022,
+      0.009519,
+      0.002429
+     ],
+     "size": 0.002904
+    },
+    {
+     "node": "gema_05",
+     "cut": "marquise",
+     "center": [
+      -0.00102,
+      0.00952,
+      -0.002434
+     ],
+     "size": 0.002863
+    },
+    {
+     "node": "gema_06",
+     "cut": "marquise",
+     "center": [
+      0.001341,
+      0.009549,
+      -0.002362
+     ],
+     "size": 0.002844
+    },
+    {
+     "node": "gema_07",
+     "cut": "marquise",
+     "center": [
+      0.001349,
+      0.00954,
+      0.002378
+     ],
+     "size": 0.002827
+    },
+    {
+     "node": "gema_08",
+     "cut": "marquise",
+     "center": [
+      -0.00963,
+      0.009506,
+      7e-05
+     ],
+     "size": 0.00275
+    },
+    {
+     "node": "gema_09",
+     "cut": "marquise",
+     "center": [
+      -0.003078,
+      0.009365,
+      -0.002109
+     ],
+     "size": 0.002511
+    },
+    {
+     "node": "gema_10",
+     "cut": "marquise",
+     "center": [
+      -0.003064,
+      0.009388,
+      0.002093
+     ],
+     "size": 0.002445
+    },
+    {
+     "node": "gema_11",
+     "cut": "marquise",
+     "center": [
+      -0.005098,
+      0.009201,
+      0.001858
+     ],
+     "size": 0.002393
+    },
+    {
+     "node": "gema_12",
+     "cut": "marquise",
+     "center": [
+      -0.005116,
+      0.009228,
+      -0.001852
+     ],
+     "size": 0.00235
+    },
+    {
+     "node": "gema_13",
+     "cut": "marquise",
+     "center": [
+      -0.008551,
+      0.009484,
+      0.00112
+     ],
+     "size": 0.002321
+    },
+    {
+     "node": "gema_14",
+     "cut": "marquise",
+     "center": [
+      -0.008551,
+      0.009472,
+      -0.001099
+     ],
+     "size": 0.002281
+    },
+    {
+     "node": "gema_15",
+     "cut": "marquise",
+     "center": [
+      -0.007013,
+      0.009273,
+      0.00159
+     ],
+     "size": 0.002123
+    },
+    {
+     "node": "gema_16",
+     "cut": "marquise",
+     "center": [
+      -0.006987,
+      0.009267,
+      -0.001594
+     ],
+     "size": 0.002082
+    }
+   ],
+   "preview": "assets/render/anillos/ring-leaves.png"
+  }
+ ],
+ "heroPair": {
+  "engagement": "ring-halo",
+  "band": "ring-jonc",
+  "why": "ring-halo: el compromiso más vistoso (brillante central 7.3 mm + halo de 22 brillantes + aro pavé); ring-jonc: alianza lisa abombada en oro con un brillante embutido.",
+  "interlock": {
+   "space": "Espacio de la pareja (three.js, metros). Centro de la caja conjunta en el origen. Cámara sugerida en +Z mirando a −Z.",
+   "engagement": {
+    "position": [
+     -0.00363,
+     -0.001525,
+     -0.003206
+    ],
+    "rotation": [
+     0.346751,
+     -0.392025,
+     -0.020514
+    ],
+    "rotationOrder": "XYZ",
+    "quaternion": [
+     0.171164,
+     -0.190094,
+     -0.043505,
+     0.965751
+    ],
+    "matrix": [
+     0.923943,
+     -0.149105,
+     0.352274,
+     0.0,
+     0.018956,
+     0.937621,
+     0.347143,
+     0.0,
+     -0.38206,
+     -0.314063,
+     0.869134,
+     0.0,
+     -0.00363,
+     -0.001525,
+     -0.003206,
+     1.0
+    ]
+   },
+   "band": {
+    "position": [
+     0.003225,
+     -0.006206,
+     -0.001308
+    ],
+    "rotation": [
+     1.529595,
+     -0.512237,
+     -0.235713
+    ],
+    "rotationOrder": "XYZ",
+    "quaternion": [
+     0.686651,
+     -0.102755,
+     -0.256257,
+     0.672521
+    ],
+    "matrix": [
+     0.847547,
+     -0.48579,
+     -0.213708,
+     0.0,
+     0.203562,
+     -0.074315,
+     0.976238,
+     0.0,
+     -0.490128,
+     -0.87091,
+     0.035903,
+     0.0,
+     0.003225,
+     -0.006206,
+     -0.001308,
+     1.0
+    ]
+   },
+   "pairBBox": {
+    "min": [
+     -0.013402,
+     -0.013057,
+     -0.01178
+    ],
+    "max": [
+     0.013402,
+     0.013057,
+     0.01178
+    ]
+   },
+   "validation": {
+    "method": "BVHTree.overlap (triángulos reales de ambos GLB con esta pose) + distancia mínima + enlace topológico del círculo medio",
+    "bvhOverlapPairs": 0,
+    "minClearance": 0.004963,
+    "linked": true
+   },
+   "note": "Dos aros rígidos no pueden enlazarse sin atravesarse: en la animación, haz que la alianza cruce el aro del compromiso en el instante del destello/clink (1–2 frames) o que llegue ya enlazada girando en espiral."
+  },
+  "camera": {
+   "position": [
+    0.0,
+    0.0105,
+    0.205
+   ],
+   "target": [
+    0.0,
+    0.0005,
+    0.0
+   ],
+   "fov": 12.8376,
+   "aspect": 1.6,
+   "note": "THREE.PerspectiveCamera(fov vertical en grados). Es la cámara exacta de pareja.jpg (lente 100 mm, sensor 36 mm)."
+  },
+  "render": "assets/render/anillos/pareja.jpg"
+ }
+}

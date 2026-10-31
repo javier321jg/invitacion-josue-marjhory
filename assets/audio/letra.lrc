@@ -1,0 +1,52 @@
+# ===========================================================================================
+#  LETRA SINCRONIZADA (opcional) — Invitación de Josué & Marjhory
+# ===========================================================================================
+#
+#  Este archivo está VACÍO a propósito: no trae ningún verso de la canción.
+#  Si quieres que la letra aparezca animada en la invitación al ritmo de la música,
+#  pégala tú aquí, con su tiempo al inicio de cada línea.
+#  Si lo dejas así (solo con estas líneas que empiezan con "#"), la invitación muestra
+#  frases de la propia invitación sincronizadas con la canción.
+#
+#  ---------------------------------------------------------------------------------------
+#  FORMATO (LRC)
+#  ---------------------------------------------------------------------------------------
+#  Cada línea empieza con el minuto y el segundo en que debe aparecer, entre corchetes:
+#
+#      [mm:ss.xx] texto de la línea
+#
+#      mm = minutos (00, 01, 02, 03…)
+#      ss = segundos (00 a 59)
+#      xx = centésimas de segundo (opcional)
+#
+#  La línea se queda en pantalla hasta que empieza la siguiente.
+#  Para dejar la pantalla sin letra (por ejemplo, en una parte solo instrumental),
+#  escribe una marca de tiempo sin texto:  [01:05.00]
+#
+#  ---------------------------------------------------------------------------------------
+#  EJEMPLO (texto inventado; borra el "#" del inicio para que una línea cuente)
+#  ---------------------------------------------------------------------------------------
+#
+#  [00:12.50] (tu primera línea aquí)
+#  [00:17.80] (tu segunda línea aquí)
+#  [00:23.10] (otra línea más)
+#  [00:29.00]
+#  [00:31.40] (la línea que sigue después de la pausa)
+#
+#  ---------------------------------------------------------------------------------------
+#  CÓMO SACAR LOS TIEMPOS
+#  ---------------------------------------------------------------------------------------
+#  1. Abre assets/audio/cancion.mp3 en cualquier reproductor que muestre los segundos
+#     (o en la página de prueba tests/song.html, que muestra el tiempo exacto en vivo).
+#  2. Anota en qué momento empieza cada línea y escríbelo como [mm:ss.xx].
+#     Ejemplo: 1 minuto y 4,3 segundos  ->  [01:04.30]
+#  3. Guarda este archivo con codificación UTF-8 (así se ven bien las tildes y la ñ).
+#  4. Recarga la invitación: la letra aparecerá sola, animada al ritmo de la canción.
+#
+#  Ajuste fino: si TODA la letra sale un poco tarde o temprano, añade una línea así
+#  (en milisegundos; positivo = la letra aparece antes, negativo = después):
+#
+#  [offset:+200]
+#
+#  Las líneas que empiezan con "#" son comentarios y se ignoran.
+# ===========================================================================================

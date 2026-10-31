@@ -1,0 +1,58 @@
+{
+ "fps": 30,
+ "width": 960,
+ "height": 960,
+ "frames": 84,
+ "framesReposo": 90,
+ "framesAbrir": 84,
+ "layout": "stacked-alpha-top-color",
+ "videoWidth": 960,
+ "videoHeight": 1920,
+ "pullStart": 0.08,
+ "knotGone": 1.36,
+ "dissolveStart": 0.84,
+ "end": 2.8,
+ "durationReposo": 3.0,
+ "durationAbrir": 2.8,
+ "events": {
+  "pullStart": 0.08,
+  "earRightGone": 0.64,
+  "earLeftGone": 0.86,
+  "knotOpen": 0.56,
+  "dissolveStart": 0.84,
+  "knotGone": 1.36,
+  "ribbonGone": 2.38,
+  "sparklesGone": 2.8
+ },
+ "abrirStartsAtReposoFrame": 1,
+ "reposoLoop": true,
+ "knot": {
+  "x": 0.5016,
+  "y": 0.4058
+ },
+ "bboxReposo": [
+  0.0802,
+  0.2427,
+  0.9208,
+  0.8219
+ ],
+ "bandY": [
+  0.349,
+  0.4417
+ ],
+ "color": "sin premultiplicar, negro donde alfa=0; alfa = luma de la mitad inferior (rango limitado BT.709)",
+ "files": {
+  "reposo": "assets/video/lazo_reposo_alpha.mp4",
+  "abrir": "assets/video/lazo_abrir_alpha.mp4",
+  "poster": "assets/video/lazo_poster.png"
+ },
+ "bytes": {
+  "reposo": 702188,
+  "abrir": 1939663,
+  "poster": 387725
+ },
+ "crf": {
+  "reposo": 16,
+  "abrir": 18
+ }
+}

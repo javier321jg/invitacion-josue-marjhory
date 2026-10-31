@@ -1,0 +1,191 @@
+/* ==========================================================================
+   FINAL · Ahuayro al atardecer (js/final3d.js) — SPEC decisión n.º 6
+   La sección mide 2 pantallas; el fondo (WebGL o la foto) queda fijo mientras pasan dos bloques:
+   1) monograma + frase escritos a mano en oro (sobre el cielo), 2) cuenta regresiva de vidrio, fecha, lugar y botón.
+   El paisaje (pueblo, río) queda siempre a la vista abajo. Nada marrón: cielo, oro y marfil.
+   ========================================================================== */
+
+#final.finale {
+  --fk: 0;                              /* progreso del atardecer 0..1 (lo escribe final3d.js) */
+  --fr: 0;                              /* progreso del revelado 0..1 */
+  --fin-ivory: #fffaf0;
+  --fin-gold: linear-gradient(178deg, #fffaf0 6%, #ffe9b8 26%, #f7cf7c 46%, #e7a94f 62%, #f9d993 80%, #fff3d2 100%);
+  --fin-glass: linear-gradient(158deg, rgba(255, 255, 255, .3) 0%, rgba(236, 228, 255, .1) 52%, rgba(255, 255, 255, .16) 100%), rgba(44, 30, 88, .16);
+  --fin-glass-line: rgba(255, 255, 255, .42);
+  position: relative; padding: 0; overflow: clip; text-align: center; background: #120c09;
+}
+#final.finale::before { content: none; }
+
+/* ---------- fondo fijo ---------- */
+.finale__bg { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; z-index: 0; }
+.finale__stage {
+  position: absolute; inset: 0; overflow: hidden;
+  /* cielo extendido (modo imagen y mientras carga): índigo arriba → azul del cielo de la foto */
+  background: linear-gradient(180deg, #16234f 0%, #2d5aa3 calc(var(--fin-photo-top, 40svh) * .55), var(--fin-sky-top, #5d93d6) var(--fin-photo-top, 40svh), var(--fin-sky, #8db8e6) 100%);
+}
+.finale__photo {
+  position: absolute; left: 50%; bottom: 0; width: max(104%, 60svh * 2.17); height: auto; max-width: none;
+  transform: translateX(-50%); user-select: none; -webkit-user-drag: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18%); mask-image: linear-gradient(180deg, transparent 0, #000 18%);
+}
+.finale__photo[style] { transform: none; bottom: auto; }       /* final3d.js fija el mismo encuadre que el WebGL */
+.finale__canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; opacity: 0; transition: opacity .9s ease; }
+.finale.is-gl .finale__canvas { opacity: 1; }
+.finale.is-gl .finale__photo, .finale.is-gl .finale__tint { visibility: hidden; transition: visibility 0s 1s; }
+
+/* atardecer en CSS (sin WebGL): cielo violeta → rosa → oro sobre la foto (mezcla normal: conserva las nubes) y el valle
+   entibiado y en penumbra (multiplicar). --fin-hz = altura del horizonte de la foto (la pone final3d.js). */
+.finale__tint {
+  position: absolute; inset: 0; pointer-events: none; opacity: var(--fk);
+  background:
+    radial-gradient(ellipse 34% 20% at 74% var(--fin-hz, 55%), rgba(255, 226, 160, .85), rgba(255, 170, 90, .35) 50%, transparent 78%),
+    linear-gradient(180deg, rgba(30, 26, 84, .9) 0%, rgba(92, 56, 140, .7) calc(var(--fin-hz, 55%) * .45),
+      rgba(226, 112, 120, .55) calc(var(--fin-hz, 55%) * .78), rgba(255, 168, 92, .5) calc(var(--fin-hz, 55%) - 2%),
+      rgba(255, 190, 110, 0) calc(var(--fin-hz, 55%) + 3%));
+}
+.finale__tint::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--fin-hz, 55%) - 6%);
+  background: linear-gradient(180deg, #fff 0%, rgba(255, 200, 156, 1) 14%, rgba(214, 150, 150, 1) 38%, rgba(110, 90, 140, 1) 100%);
+  mix-blend-mode: multiply;
+}
+
+/* velo de lectura: solo arriba (donde va el texto), más presente de día, casi nada al atardecer */
+.finale__veil {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(10, 16, 46, .5) 0%, rgba(10, 16, 46, .26) 26%, rgba(10, 16, 46, 0) 50%),
+              linear-gradient(0deg, rgba(8, 8, 24, .34) 0%, rgba(8, 8, 24, 0) 22%);
+  opacity: calc(1 - var(--fk) * .55);
+}
+/* transición desde el fondo oscuro de la página (borde superior de la sección, se va con el scroll) */
+.finale__fade {
+  position: absolute; left: 0; right: 0; top: 0; height: 34svh; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, #120c09 0%, rgba(18, 12, 9, .82) 22%, rgba(18, 12, 9, .35) 58%, rgba(18, 12, 9, 0) 100%);
+  opacity: var(--fe, 1);
+}
+
+/* ---------- contenido ---------- */
+#final .finale__inner { position: relative; z-index: 2; max-width: none; margin: -100vh 0 0; margin-top: -100svh; padding: 0 var(--gut); }
+.finale__spacer { display: none; }
+.finale__hero, .finale__info {
+  min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+}
+.finale__hero { padding-top: max(11svh, calc(64px + var(--safe-t))); }
+.finale__info { padding-top: max(10svh, calc(70px + var(--safe-t))); padding-bottom: calc(24px + var(--safe-b)); }
+
+#final .finale__mono {
+  margin: 0 0 -.12em; padding: .06em .22em .3em; font-family: var(--f-script); font-weight: 400; line-height: 1.05;
+  font-size: clamp(76px, 22vw, 172px); letter-spacing: 0; white-space: nowrap;
+  background: var(--fin-gold); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+#final .finale__lead {
+  margin: 0; max-width: 15em; font-family: var(--f-serif); font-style: italic; font-weight: 500; line-height: 1.12;
+  font-size: clamp(30px, 8.6vw, 60px); text-wrap: balance;
+}
+#final .finale__lead .line {
+  display: inline-block; padding: .04em .14em .2em;
+  background: var(--fin-gold); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+/* Sin filter en los anfitriones de la escritura (sería un filtro por cuadro sobre capas animadas): el SVG de escritura.js trae
+   su propio relieve; para leer sobre el cielo claro hay un halo estático (degradado, sin blur) detrás del bloque. */
+.finale__hero { position: relative; }
+.finale__hero::before {
+  content: ''; position: absolute; left: 50%; top: max(6svh, 40px); width: min(1100px, 140vw); height: min(60svh, 520px);
+  transform: translateX(-50%); pointer-events: none; z-index: -1;
+  background: radial-gradient(closest-side, rgba(16, 14, 52, .42), rgba(16, 14, 52, .2) 55%, rgba(16, 14, 52, 0));
+  opacity: calc(1 - var(--fk) * .6);
+}
+
+/* cuenta regresiva: tarjetas de vidrio claro, números marfil → oro (se reutiliza el marcado de shell-ui.js) */
+#final .countdown { display: grid; grid-template-columns: repeat(4, auto); gap: 10px; margin: 0 auto 22px; perspective: 900px; }
+#final .cd { gap: 11px; }
+#final .flip {
+  --fh: 72px; height: var(--fh); min-width: calc(var(--fh) * 1.04); padding: 0 calc(var(--fh) * .14); border-radius: 18px;
+  background: var(--fin-glass); border: 1px solid var(--fin-glass-line);
+  box-shadow: 0 22px 44px -20px rgba(16, 10, 48, .6), inset 0 1px 0 rgba(255, 255, 255, .6), inset 0 -14px 26px -16px rgba(255, 196, 130, .45);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+  font-weight: 500; color: var(--fin-ivory);
+}
+#final .flip__half, #final .flip__leaf { display: none; }
+#final .flip::after { display: none; }
+#final .flip::before { background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, 0) 46%); border-radius: inherit; }
+#final .flip__sizer {
+  visibility: visible; position: relative; z-index: 1;
+  background: linear-gradient(180deg, #ffffff 14%, #fff6df 40%, #ffe2a4 70%, #f2c069 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 1.5px rgba(30, 18, 60, .45));
+}
+#final .flip.is-flipping .flip__sizer { animation: finTick .5s cubic-bezier(.2, .8, .2, 1); }
+@keyframes finTick {
+  0% { transform: translateY(-.16em) scale(.97); opacity: .45; }
+  100% { transform: none; opacity: 1; }
+}
+#final .cd__label { color: var(--fin-ivory); font-size: 9.5px; letter-spacing: .3em; text-indent: .3em; text-shadow: 0 1px 6px rgba(14, 10, 40, .7); }
+
+#final .finale__date {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px 14px; margin: 0;
+  padding: 11px 20px; border-radius: 999px; background: var(--fin-glass); border: 1px solid var(--fin-glass-line);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3); backdrop-filter: blur(12px) saturate(1.3);
+  box-shadow: 0 16px 34px -18px rgba(16, 10, 48, .6), inset 0 1px 0 rgba(255, 255, 255, .5);
+  font-family: var(--f-sans); font-weight: 600; font-size: 10.5px; letter-spacing: .28em; text-indent: .28em; text-transform: uppercase;
+  color: var(--fin-ivory); text-shadow: 0 1px 4px rgba(14, 10, 40, .55);
+}
+#final .finale__date i { color: #ffd88e; font-size: 7px; opacity: 1; }
+@media (max-width: 559px) {
+  #final .finale__date { flex-direction: column; gap: 8px; border-radius: 22px; padding: 12px 22px; }
+  #final .finale__date i { display: none; }
+}
+#final .finale__back {
+  margin-top: 26px; color: var(--fin-ivory); background: linear-gradient(158deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .08)), rgba(44, 30, 88, .22); border: 1px solid rgba(255, 236, 196, .55);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+  text-shadow: 0 1px 4px rgba(14, 10, 40, .5); box-shadow: 0 16px 34px -18px rgba(16, 10, 48, .6), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+@media (hover: hover) and (pointer: fine) {
+  #final .finale__back:hover { background: rgba(255, 255, 255, .24); border-color: #ffe2a8; transform: translateY(-2px); }
+}
+#final .finale__back:active { transform: scale(.98); }
+
+/* Diseño fijo (lo activa final3d.js con .is-sc): fondo y contenido quedan fijos mientras dura el atardecer; el bloque 1
+   (monograma + frase) cede al bloque 2 (cuenta regresiva, fecha, botón) con el scroll. Siempre sobre el cielo. */
+#final.is-sc .finale__inner { position: sticky; top: 0; height: 100vh; height: 100svh; }
+#final.is-sc .finale__hero, #final.is-sc .finale__info { position: absolute; left: var(--gut); right: var(--gut); top: 0; min-height: 0; }
+#final.is-sc .finale__hero { opacity: var(--fho, 1); transform: translate3d(0, calc((1 - var(--fho, 1)) * -5svh), 0); }
+#final.is-sc .finale__info { opacity: var(--fio, 0); transform: translate3d(0, calc((1 - var(--fio, 0)) * 4svh), 0); pointer-events: none; }
+#final.is-sc.is-info .finale__info { pointer-events: auto; }
+#final.is-sc .finale__spacer { display: block; height: 115vh; height: 115svh; }
+
+@media (min-width: 720px) {
+  .finale__hero { padding-top: max(12svh, 84px); }
+  .finale__info { padding-top: max(13svh, 96px); }
+  #final .countdown { gap: 18px; margin-bottom: 28px; }
+  #final .flip { --fh: 104px; border-radius: 24px; }
+  #final .cd__label { font-size: 10.5px; }
+  #final .finale__date { font-size: 11px; padding: 13px 26px; }
+}
+@media (min-width: 720px) and (max-height: 820px) {
+  #final .flip { --fh: 88px; }
+  .finale__hero { padding-top: max(9svh, 64px); }
+  .finale__info { padding-top: max(9svh, 72px); }
+}
+/* pantallas bajas en horizontal (móvil acostado): todo más compacto */
+@media (max-height: 520px) and (orientation: landscape) {
+  #final .finale__mono { font-size: clamp(60px, 15vh, 110px); }
+  #final .finale__lead { font-size: clamp(24px, 7vh, 40px); }
+  #final .flip { --fh: 58px; border-radius: 14px; }
+  .finale__hero, .finale__info { padding-top: 22px; }
+  #final .finale__back { margin-top: 14px; }
+}
+
+/* movimiento reducido: sin tic animado */
+#final.is-rm .flip.is-flipping .flip__sizer { animation: none; }
+@media (prefers-reduced-motion: reduce) { #final .flip.is-flipping .flip__sizer { animation: none; } }
+
+/* calidad mínima (GPU lenta): sin desenfoque de fondo, vidrio algo más opaco */
+#final.is-lowq .flip, #final.is-lowq .finale__date, #final.is-lowq .finale__back { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: rgba(40, 30, 84, .42); }
+/* sin soporte de backdrop-filter: vidrio más opaco para que se lea igual */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #final .flip, #final .finale__date, #final .finale__back { background: rgba(28, 30, 70, .55); }
+}
+
+/* Con el paisaje en pantalla, la viñeta global de la página (marrón oscuro) se aligera: el atardecer manda */
+html.fin-on .fx-vignette { opacity: .4; transition: opacity 1.2s ease; }
+html.fin-on .fx-grain { opacity: .45; transition: opacity 1.2s ease; }

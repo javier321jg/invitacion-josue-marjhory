@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es" class="is-gated">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Josué &amp; Marjhory · Cena de compromiso</title>
+<meta name="description" content="Josué y Marjhory te invitan a su cena de compromiso: jueves 24 de diciembre de 2026, 5:00 de la tarde, en Ahuayro — Pailahuantuna.">
+<meta name="theme-color" content="#120c09">
+<meta name="color-scheme" content="dark">
+<!-- Vista previa al compartir (WhatsApp/Facebook): og:image y og:url deben ser URL ABSOLUTAS del dominio real.
+     Al desplegar: python -E -P tools/manifest.py --base-url https://TU-DOMINIO/  (reescribe estas dos etiquetas) -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_PE">
+<meta property="og:title" content="Josué &amp; Marjhory · Cena de compromiso">
+<meta property="og:description" content="Jueves 24 de diciembre de 2026 · 5:00 de la tarde · Ahuayro — Pailahuantuna">
+<meta property="og:url" content="https://javier321jg.github.io/invitacion-josue-marjhory/">
+<meta property="og:image" content="https://javier321jg.github.io/invitacion-josue-marjhory/assets/render/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Josué &amp; Marjhory · Cena de compromiso">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23120c09'/%3E%3Ccircle cx='26' cy='34' r='13' fill='none' stroke='%23d6ba84' stroke-width='3.4'/%3E%3Ccircle cx='38' cy='34' r='13' fill='none' stroke='%23f2e5cb' stroke-width='3.4'/%3E%3Cpath d='M26 14l4 5-4 4-4-4z' fill='%23f2e5cb'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Great+Vibes&family=Montserrat:wght@400;500;600&family=Fondamento:ital@0;1&family=IM+Fell+English+SC&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/gate.css">
+<link rel="stylesheet" href="css/kinetic.css">
+<link rel="stylesheet" href="css/historia.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script type="module" src="js/main.js"></script>
+<link rel="stylesheet" href="css/escritura.css">
+<script type="module" src="js/escritura.js"></script>
+<script type="module" src="js/historia3d.js"></script>
+<link rel="stylesheet" href="css/final.css">
+<script type="module" src="js/final3d.js"></script>
+</head>
+<body>
+
+<!-- Atmósfera (capas fijas, decorativas) -->
+<canvas class="fx-dust" aria-hidden="true"></canvas>
+<div class="fx-glow" aria-hidden="true"></div>
+<div class="fx-vignette" aria-hidden="true"></div>
+<div class="fx-grain" aria-hidden="true"></div>
+
+<!-- ============ PUERTA (crema, lazo de satén renderizado en Blender · js/gate.js la rellena) ============ -->
+<div id="gate" class="cgate is-booting" role="dialog" aria-modal="true" aria-label="Josué &amp; Marjhory · Cena de compromiso"></div>
+
+<main id="main">
+
+  <!-- ============ HERO · ANILLOS ============ -->
+  <section id="inicio" class="hero" aria-label="Inicio">
+    <div class="hero__sticky">
+      <div id="rings-stage" class="stage stage--rings" aria-hidden="true"></div>
+      <div class="hero__veil" aria-hidden="true"></div>
+      <div class="hero__content">
+        <div class="hero__inner" data-kinetic-avoid>
+          <p class="eyebrow hero__eyebrow" data-hero="eyebrow" data-c="HERO.eyebrow">Una invitación para ti</p>
+          <h1 class="hero__names" data-hero="names" data-kinetic="letters" aria-label="Josué &amp; Marjhory">
+            <span class="hn hn--a" data-c="COUPLE.a" aria-hidden="true">Josué</span>
+            <span class="hn hn--amp" aria-hidden="true">&amp;</span>
+            <span class="hn hn--b" data-c="COUPLE.b" aria-hidden="true">Marjhory</span>
+          </h1>
+          <p class="hero__subtitle" data-hero="subtitle" data-c="HERO.subtitle">Un paso más en nuestra historia</p>
+          <p class="hero__date" data-hero="date" data-kinetic="pulse"><i class="rule" aria-hidden="true"></i><span data-c="EVENT.dateLong">24 de diciembre de 2026</span><i class="rule" aria-hidden="true"></i></p>
+        </div>
+      </div>
+      <div class="scroll-cue" data-hero="cue" aria-hidden="true"><span class="scroll-cue__line"><i></i></span></div>
+    </div>
+  </section>
+
+  <!-- ============ EL PERGAMINO ============ -->
+  <section id="pergamino" class="parch" aria-labelledby="parch-title">
+    <div class="parch__sticky">
+      <div id="scroll-stage" class="stage stage--scroll" aria-hidden="true"></div>
+      <div class="parch__fallback" id="parch-fallback" hidden></div>
+      <div class="parch__fade parch__fade--top" aria-hidden="true"></div>
+      <div class="parch__fade parch__fade--bottom" aria-hidden="true"></div>
+      <header class="parch__head">
+        <p class="eyebrow" data-c="PARCHMENT_TEXT.kicker">Te invitamos a nuestra</p>
+        <h2 id="parch-title" class="parch__title" data-c="EVENT.title">Cena de compromiso</h2>
+      </header>
+      <div class="parch__foot">
+        <button id="abrir-pergamino" class="hint" type="button" aria-controls="invitacion-texto" aria-expanded="false" aria-label="Abrir el pergamino: romper el sello y desatar el lazo">
+          <span class="hint__seal" aria-hidden="true"><i></i><i></i></span>
+          <span class="hint__label">Toca el sello para abrir</span>
+        </button>
+      </div>
+      <nav class="parch__ctas" id="parch-ctas" aria-label="Acciones de la invitación" hidden>
+        <a id="cta-mapa" class="cta" href="https://maps.app.goo.gl/YyHd2MTtzHGGr5dj7" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg>
+          <span>Cómo llegar</span>
+        </a>
+        <a id="cta-agendar" class="cta" href="#" download="josue-y-marjhory-cena-de-compromiso.ics">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/><path d="M12 13v4M10 15h4"/></svg>
+          <span>Agendar</span>
+        </a>
+        <button id="cta-leer" class="cta" type="button" aria-haspopup="dialog" aria-controls="lectura">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5L19 8v11.5H5z"/><path d="M8.5 10h7M8.5 13h7M8.5 16h4.5"/></svg>
+          <span>Leer texto</span>
+        </button>
+      </nav>
+    </div>
+    <!-- Copia accesible del texto del pergamino (oculta visualmente; la genera main.js desde content.js) -->
+    <article id="invitacion-texto" class="sr-only" aria-label="Texto de la invitación">
+      <p>Te invitamos a nuestra</p>
+      <h3>Cena de compromiso</h3>
+      <p>Josué y Marjhory</p>
+      <blockquote><p>“Dios pone el tiempo y el lugar adecuado para poder amar para toda la vida.”</p></blockquote>
+      <p>Jueves 24, diciembre 2026. Hora: 5:00 de la tarde.</p>
+      <p>Lugar: Ahuayro — Pailahuantuna</p>
+      <p>Esperamos compartir contigo este momento inolvidable.</p>
+    </article>
+  </section>
+
+  <!-- ============ NUESTRA HISTORIA ============ -->
+  <!-- HISTORIA: js/historia3d.js (foto que se forma con flores en WebGL, parallax 3D) + css/historia.css.
+       Título y firma escritos a mano en oro por js/escritura.js (data-escritura). Sin WebGL: la <img>. -->
+  <section id="historia" class="story" aria-labelledby="story-title">
+    <figure class="story__photo" data-kinetic-avoid>
+      <div class="story__frame">
+        <img src="assets/photos/referencia-1.jpg" alt="Josué y Marjhory, sonrientes, en una de sus aventuras juntos" loading="lazy" decoding="async" width="480" height="555">
+      </div>
+      <span class="story__arch" aria-hidden="true"></span>
+    </figure>
+    <div class="story__copy" data-kinetic-avoid>
+      <span class="ornament" aria-hidden="true">✧</span>
+      <p class="eyebrow story__eyebrow" data-c="STORY.eyebrow">Juntos es nuestro lugar favorito</p>
+      <h2 id="story-title" class="story__title" data-kinetic-avoid>
+        <span class="line" data-escritura="historia-titulo-1" data-c="STORY.title.0">Un paso más</span>
+        <em class="line" data-escritura="historia-titulo-2" data-escritura-tras="historia-titulo-1" data-c="STORY.title.1">en nuestra historia</em>
+      </h2>
+      <p class="story__body" data-c="STORY.body">Hay momentos que merecen ser celebrados con las personas que más queremos. Nos encantaría que seas parte de este nuevo comienzo.</p>
+      <p class="signature" data-kinetic-avoid data-escritura="historia-firma" data-escritura-tras="historia-titulo-2" data-escritura-retraso="0.9" data-c="STORY.signature">Josué &amp; Marjhory</p>
+    </div>
+  </section>
+
+  <!-- ============ NUESTROS MOMENTOS ============ -->
+  <section id="momentos" class="moments" aria-labelledby="moments-title">
+    <header class="section-head" data-kinetic-avoid>
+      <span class="ornament" aria-hidden="true">✧</span>
+      <p class="eyebrow" data-reveal="fade" data-c="MOMENTS.eyebrow">Pequeños instantes, grandes recuerdos</p>
+      <h2 id="moments-title" class="section-title"><span class="line" data-escritura="momentos-titulo" data-c="MOMENTS.title">Nuestros momentos</span></h2>
+      <p class="section-sub" data-reveal="fade" data-c="MOMENTS.subtitle">Una historia que seguimos escribiendo juntos.</p>
+    </header>
+    <div class="gallery" id="gallery" data-kinetic-avoid></div>
+  </section>
+
+  <!-- ============ FINAL · Ahuayro al atardecer ============
+       FINAL: js/final3d.js (foto de Ahuayro en WebGL: parallax de profundidad, cielo vivo, día → atardecer dorado, luces del
+       pueblo) + css/final.css. Monograma y frase escritos a mano en oro por js/escritura.js (data-escritura).
+       Sin WebGL: la <img> con degradados CSS. Fotos y mapas: python -E -P tools/final/preparar_ahuayro.py assets/photos/ahuayro.jpg -->
+  <section id="final" class="finale" aria-labelledby="finale-title">
+    <div class="finale__bg" data-kinetic-avoid aria-hidden="true">
+      <div class="finale__stage">
+        <img class="finale__photo" src="assets/photos/ahuayro-sm.jpg" srcset="assets/photos/ahuayro-sm.jpg 1280w, assets/photos/ahuayro-lg.jpg 2000w" sizes="(orientation: portrait) 280vw, 104vw" width="2000" height="921" alt="" decoding="async" loading="lazy">
+        <div class="finale__tint"></div>
+      </div>
+      <div class="finale__veil"></div>
+    </div>
+    <div class="finale__fade" aria-hidden="true"></div>
+    <div class="finale__inner">
+      <div class="finale__hero">
+        <p class="finale__mono" data-kinetic-avoid aria-hidden="true" data-escritura="final-mono" data-c="COUPLE.monogram">J &amp; M</p>
+        <h2 id="finale-title" class="finale__lead" data-kinetic-avoid><span class="line" data-escritura="final-lead" data-escritura-tras="final-mono" data-c="FINALE.lead">Nos encantará celebrar contigo</span></h2>
+      </div>
+      <div class="finale__info">
+        <div class="countdown" id="countdown" data-kinetic-avoid role="timer" aria-live="off" aria-label="Cuenta regresiva para la cena de compromiso"></div>
+        <p class="finale__date" data-kinetic="pulse" data-kinetic-avoid><span data-c="EVENT.dateShort">24 · 12 · 2026</span><i aria-hidden="true">◆</i><span data-c="EVENT.place">Ahuayro — Pailahuantuna</span></p>
+        <button id="volver" class="btn btn--ghost finale__back" type="button" data-kinetic-avoid data-c="FINALE.back">Volver al inicio ↑</button>
+      </div>
+    </div>
+    <div class="finale__spacer" aria-hidden="true"></div>
+  </section>
+</main>
+
+<!-- Botón de música -->
+<button id="musica" class="music" type="button" aria-pressed="false" aria-label="Activar música" hidden>
+  <span class="music__eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+</button>
+
+<!-- Lightbox de fotos -->
+<dialog id="lightbox" class="lb" aria-label="Fotografía ampliada">
+  <div class="lb__stage">
+    <figure class="lb__figure"><img class="lb__img" alt=""></figure>
+  </div>
+  <p class="lb__count" aria-live="polite"><span class="lb__i">1</span> / <span class="lb__n">6</span></p>
+  <button class="lb__btn lb__close" type="button" aria-label="Cerrar fotografía"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <button class="lb__btn lb__prev" type="button" aria-label="Foto anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button class="lb__btn lb__next" type="button" aria-label="Foto siguiente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+</dialog>
+
+<!-- Tarjeta legible del pergamino -->
+<dialog id="lectura" class="reader" aria-labelledby="reader-title">
+  <div class="reader__scroll"><div class="reader__card" id="reader-card"></div></div>
+  <button class="lb__btn reader__close" type="button" aria-label="Cerrar texto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</dialog>
+
+<noscript><style>#gate{display:none!important}html.is-gated{overflow:auto!important}.hero [data-hero]{opacity:1!important}</style></noscript>
+</body>
+</html>

@@ -1,0 +1,68 @@
+/* ==========================================================================
+   ESCRITURA-HTML · letras doradas escritas a mano (js/escritura.js)
+   Las capas (.esc-capa) las crea el módulo dentro de cada [data-escritura].
+   ========================================================================== */
+
+/* Respaldo (sin JS, sin SVG o mientras carga): el texto real en oro */
+[data-escritura]:not(.esc-on) { color: #e2c07a; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  [data-escritura]:not(.esc-on) {
+    background-image: linear-gradient(178deg, #fff3d2 0%, #f6dc9c 24%, #e2b766 46%, #fbecc2 56%, #c99645 70%, #9a6826 88%, #d9ae5f 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+/* Los saltos de renglón se equilibran (p. ej. «Nos encantará / celebrar contigo» en 360–390 px) */
+[data-escritura] { text-wrap: balance; }
+
+/* Montado: el texto real sigue en el DOM (accesible y seleccionable) pero no se pinta; lo pinta el SVG */
+.esc-on,
+.esc-on *:not(.esc-capa):not(.esc-capa *) {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  background-image: none !important;
+  text-shadow: none !important;
+}
+
+.esc-capa {
+  position: absolute; left: 0; top: 0; margin: 0; padding: 0; border: 0;
+  pointer-events: none; -webkit-user-select: none; user-select: none;
+}
+/* Sin filter en el SVG: cambia en cada cuadro mientras se escribe y un drop-shadow obligaría a re-filtrar la capa.
+   El contraste lo da el filete oscuro dentro del SVG; el halo cálido es una capa estática aparte (solo opacidad). */
+.esc-svg { overflow: visible; display: block; }
+.esc-halo {
+  opacity: 0; transition: opacity 1.6s ease;
+  background: radial-gradient(closest-side, rgba(255, 196, 104, .085), rgba(255, 186, 90, .035) 55%, rgba(255, 180, 80, 0));
+}
+.esc-halo.is-on { opacity: 1; }
+.esc-fx { display: block; }
+
+/* Brillo que recorre las letras (máscara con la forma de las letras; la banda se mueve en el compositor) */
+.esc-brillo {
+  overflow: hidden;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+  -webkit-mask-position: 0 0; mask-position: 0 0;
+}
+.esc-brillo > i {
+  position: absolute; inset: 0; display: block;
+  background: linear-gradient(104deg, rgba(255, 246, 220, 0) 30%, rgba(255, 246, 220, .5) 44%, rgba(255, 253, 244, 1) 50%,
+    rgba(255, 246, 220, .5) 56%, rgba(255, 246, 220, 0) 70%);
+  transform: translateX(-110%);
+  will-change: transform;
+}
+
+/* Sonda de línea base (la usa el módulo un instante al medir) */
+.esc-sonda {
+  display: inline-block !important; width: 0 !important; height: 0 !important; overflow: hidden !important;
+  vertical-align: baseline !important; padding: 0 !important; margin: 0 !important; border: 0 !important;
+}
+
+/* Movimiento reducido: completo con un fundido corto */
+.esc-svg.esc-fundido { opacity: 0; transition: opacity .9s ease; }
+.esc-svg.esc-fundido.esc-fundido-in { opacity: 1; }
+
+@media print {
+  .esc-fx, .esc-brillo { display: none !important; }
+}

@@ -1,0 +1,359 @@
+/* ==========================================================================
+   GATE · puerta de entrada CREMA con el lazo de satén (js/gate.js)
+   Papel de algodón crema (textura generada en canvas por gate.js), tinta chocolate,
+   oro en lámina y un lazo renderizado en Blender (video con alfa apilado → WebGL).
+   Todo lo animado usa transform/opacity; durante la apertura las caras quedan estáticas.
+   ========================================================================== */
+.cgate {
+  --cg-paper: #f3ead9;
+  --cg-paper-2: #ede1c8;
+  --cg-paper-hi: #f8f1e3;
+  --cg-choc: #4a3426;
+  --cg-choc-2: #6b4b36;
+  --cg-ink: #5b4130;
+  --cg-gold-d: #8a6430;
+  --cg-gold: #b8914f;
+  --cg-gold-l: #e9cf94;
+  --cg-foil: linear-gradient(172deg, #7a5626 0%, #a9813f 16%, #ead08f 33%, #c69d55 45%, #8d6631 58%, #c9a462 72%, #f0dba6 84%, #a27a3c 100%);
+  --cg-bow: min(72vw, 62svh, 720px);
+  --cg-ease: cubic-bezier(.16, 1, .3, 1);
+  --cg-ease-io: cubic-bezier(.7, 0, .2, 1);
+  --f-script: 'Great Vibes', 'Segoe Script', cursive;
+  --f-serif: 'Cormorant Garamond', 'Cormorant', Garamond, 'Times New Roman', serif;
+  --f-sans: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+
+  position: fixed; inset: 0; z-index: 100; overflow: hidden;
+  color: var(--cg-choc); background: transparent;
+  -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: contain;
+  -webkit-user-select: none; user-select: none; color-scheme: light;
+}
+/* Antes de que gate.js monte (si index.html ya lleva la clase), ya se ve crema. */
+.cgate.is-booting { background: var(--cg-paper) radial-gradient(ellipse 120% 90% at 50% 42%, #f6eedf 0%, #efe4cf 62%, #e6d7bb 100%); }
+.cgate.is-gone { display: none !important; }
+.cgate:focus { outline: none; }
+.cgate *, .cgate *::before, .cgate *::after { box-sizing: border-box; }
+
+.cg-sr {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ---------- Bajo las solapas: luz y sombra que caen sobre el hero al abrir ---------- */
+.cg-under { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.cg-under__shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8, 5, 3, .78) 0%, rgba(8, 5, 3, .28) 26%, transparent 46%, transparent 54%, rgba(8, 5, 3, .28) 74%, rgba(8, 5, 3, .78) 100%);
+}
+.cg-under__light {
+  position: absolute; top: -10%; bottom: -10%; left: 50%; width: 46vmin; margin-left: -23vmin;
+  background: radial-gradient(ellipse 50% 60% at 50% 50%, rgba(255, 238, 196, .95) 0%, rgba(240, 205, 140, .5) 30%, rgba(214, 170, 100, .14) 60%, transparent 75%);
+  transform: scaleX(.04); mix-blend-mode: screen;
+}
+
+/* ---------- Las dos solapas del envoltorio (gatefold) ---------- */
+.cg-stage {
+  position: absolute; inset: 0; perspective: 1600px; perspective-origin: 50% 50%;
+  background: var(--cg-paper);           /* tapa la costura subpíxel en reposo */
+}
+.cgate.is-opening .cg-stage { background: transparent; }
+.cg-flap {
+  position: absolute; top: 0; bottom: 0; width: 50%; transform-style: preserve-3d;
+  will-change: transform;          /* capas listas desde el reposo: la apertura no re-rasteriza nada */
+}
+.cg-flap--l { left: 0; transform-origin: 0 50%; }
+.cg-flap--r { right: 0; transform-origin: 100% 50%; }
+.cg-flap__in {
+  position: absolute; inset: 0; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+.cg-flap__back {
+  position: absolute; inset: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  transform: rotateY(180deg);
+  background-color: #e4d5b8; background-image: var(--cg-fiber, none); background-size: 384px 384px;
+}
+.cg-flap__back::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(74, 52, 38, .35), rgba(74, 52, 38, .05) 60%, rgba(255, 245, 225, .2));
+}
+.cg-flap--r .cg-flap__back::after { transform: scaleX(-1); }
+/* sombreado según el giro (lo anima gate.js) */
+.cg-flap__shade {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, rgba(58, 36, 22, .06) 0%, rgba(58, 36, 22, .42) 100%);
+}
+.cg-flap--r .cg-flap__shade { background: linear-gradient(270deg, rgba(58, 36, 22, .06) 0%, rgba(58, 36, 22, .42) 100%); }
+/* brillo que cruza el papel al girar y sombra proyectada (las anima gate.js) */
+.cg-flap__sheen {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 55%; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, rgba(255, 252, 242, 0), rgba(255, 252, 242, .5) 50%, rgba(255, 252, 242, 0));
+}
+.cg-flap__drop {
+  position: absolute; top: 0; bottom: 0; width: clamp(50px, 9vw, 130px); pointer-events: none; opacity: 0;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+.cg-flap--l .cg-flap__drop { left: 100%; background: linear-gradient(90deg, rgba(12, 7, 4, .62), rgba(12, 7, 4, .22) 38%, rgba(12, 7, 4, 0)); }
+.cg-flap--r .cg-flap__drop { right: 100%; background: linear-gradient(270deg, rgba(12, 7, 4, .62), rgba(12, 7, 4, .22) 38%, rgba(12, 7, 4, 0)); }
+/* filo dorado de la costura: aparece al despegarse el papel */
+.cg-flap__gild {
+  position: absolute; top: 0; bottom: 0; width: 7px; pointer-events: none; opacity: 0;
+  background:
+    linear-gradient(180deg, #7d5a2b 0%, #f2dca5 18%, #b8914f 36%, #fff1c9 52%, #a27a3c 70%, #ecd29a 86%, #8a6430 100%);
+  transition: opacity .5s ease;
+}
+.cg-flap--l .cg-flap__gild { right: 0; box-shadow: -1px 0 0 rgba(90, 60, 30, .35), -6px 0 10px -4px rgba(74, 52, 38, .35); }
+.cg-flap--r .cg-flap__gild { left: 0; box-shadow: 1px 0 0 rgba(90, 60, 30, .35), 6px 0 10px -4px rgba(74, 52, 38, .35); }
+.cgate.is-opening .cg-flap__gild { opacity: 1; }
+
+/* La cara impresa ocupa todo el viewport en ambas solapas (cada una muestra su mitad). */
+.cg-face {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 200%;
+  background-color: var(--cg-paper);
+  background-image:
+    radial-gradient(ellipse 72% 48% at 50% 36%, rgba(255, 251, 241, .62) 0%, rgba(255, 251, 241, 0) 70%),
+    radial-gradient(ellipse 130% 100% at 50% 46%, rgba(120, 82, 48, 0) 55%, rgba(120, 82, 48, .2) 100%),
+    var(--cg-fiber, none),
+    var(--cg-mottle, none);
+  background-size: 100% 100%, 100% 100%, 384px 384px, 100% 100%;
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+}
+.cg-flap--r .cg-face { left: -100%; }
+
+/* ---------- Ornamentos (inspirados en referencia-0: ondas chocolate, hilos de oro, flores marfil) ---------- */
+.cg-art { position: absolute; pointer-events: none; width: clamp(150px, 30vw, 470px); aspect-ratio: 1; }
+.cg-art svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.cg-art--tl { left: 0; top: 0; }
+.cg-art--br { right: 0; bottom: 0; transform: rotate(180deg); }
+.cg-art--bl, .cg-art--tr { width: clamp(90px, 16vw, 250px); opacity: .9; }
+.cg-art--bl { left: 0; bottom: 0; transform: scaleY(-1); }
+.cg-art--tr { right: 0; top: 0; transform: scaleX(-1); }
+@media (max-aspect-ratio: 3/4) {
+  .cgate { --cg-bow: min(116vw, 56svh); }
+  .cg-art--tl, .cg-art--br { width: clamp(140px, 46vw, 330px); }
+  .cg-art--bl, .cg-art--tr { display: none; }
+}
+.cg-thread-draw { stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: cg-draw 3.2s var(--cg-ease-io) forwards; }
+@keyframes cg-draw { to { stroke-dashoffset: 0; } }
+.cg-fade-in { opacity: 0; animation: cg-fade 1.8s ease forwards; }
+@keyframes cg-fade { to { opacity: 1; } }
+/* Destellos: <i> HTML sobre el adorno, en su propia capa (transform + opacity → solo compositor, sin repintar el SVG) */
+.cg-glint {
+  position: absolute; display: block; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 246, 216, .95) 0%, rgba(226, 190, 120, .55) 45%, rgba(199, 154, 78, 0) 100%);
+  transform: scale(0); opacity: 0; will-change: transform, opacity; animation: cg-glint 5.6s ease-in-out infinite;
+}
+.cg-glint svg { display: block; width: 100%; height: 100%; overflow: visible; }
+@keyframes cg-glint {
+  0%, 72%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+  80% { transform: scale(1) rotate(45deg); opacity: 1; }
+  90% { transform: scale(.25) rotate(90deg); opacity: .6; }
+}
+
+/* ---------- Columna (misma maqueta en las caras y en la capa interactiva) ---------- */
+.cg-col {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  text-align: center;
+  padding: calc(clamp(28px, 7svh, 72px) + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.cg-face .cg-col { left: 0; right: 0; }
+.cg-top { display: flex; flex-direction: column; align-items: center; }
+.cg-kicker {
+  margin: 0; font-family: var(--f-sans); font-weight: 500; font-size: clamp(10px, 2.7vw, 12.5px); line-height: 1.6;
+  letter-spacing: .46em; text-indent: .46em; text-transform: uppercase; color: var(--cg-choc-2);
+}
+.cg-names {
+  margin: .14em 0 0; padding: .16em .42em .3em; font-family: var(--f-script); font-weight: 400;
+  font-size: min(13.4vw, 11.2svh, 108px); line-height: 1.08; white-space: nowrap; letter-spacing: .005em;
+  background-image:
+    linear-gradient(104deg, rgba(255, 252, 240, 0) 42%, rgba(255, 250, 232, .95) 49%, rgba(255, 255, 255, 1) 50%, rgba(255, 250, 232, .9) 51%, rgba(255, 252, 240, 0) 58%),
+    var(--cg-foil);
+  background-size: 320% 100%, 100% 100%; background-position: 115% 0, 0 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 252, 244, .75)) drop-shadow(0 1.5px 1.2px rgba(74, 52, 38, .32));
+  animation: cg-foil 7.5s cubic-bezier(.45, 0, .25, 1) 2.2s 3; /* FIX: 3 barridos y quieto (repintaba texto + 2 sombras sin fin) */
+}
+.cg-names .cg-amp { font-size: .78em; padding: 0 .06em; }
+@keyframes cg-foil {
+  0% { background-position: 115% 0, 0 0; }
+  42%, 100% { background-position: -15% 0, 0 0; }
+}
+.cg-date {
+  margin: -.2em 0 0; font-family: var(--f-serif); font-style: italic; font-weight: 500;
+  font-size: clamp(17px, 4.7vw, 24px); line-height: 1.3; letter-spacing: .015em; color: var(--cg-ink);
+}
+
+/* Hilo dorado de carga (se completa con el progreso) */
+.cg-thread { position: relative; width: clamp(170px, 46vw, 250px); height: 26px; margin: clamp(10px, 2.2svh, 22px) 0 0; }
+.cg-thread svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.cg-thread__track { fill: none; stroke: rgba(150, 112, 60, .22); stroke-width: 1; }
+.cg-thread__prog { fill: none; stroke: url(#cg-thread-g); stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+.cg-thread__bead { transition: opacity .6s ease; }
+.cgate.is-ready .cg-thread__bead { opacity: 0; }
+.cgate.is-ready .cg-thread__prog { animation: cg-thread-glow 1.6s ease-out 1; }
+@keyframes cg-thread-glow { 0% { stroke-width: 1.5; } 30% { stroke-width: 2.4; } 100% { stroke-width: 1.5; } }
+
+/* ---------- El lazo ---------- */
+/* El cuadro del render tiene aire arriba y abajo: márgenes negativos para que el lazo quede cerca del texto. */
+.cg-bow-slot { position: relative; width: var(--cg-bow); height: var(--cg-bow); margin: calc(var(--cg-bow) * -.16) 0 calc(var(--cg-bow) * -.1); flex: none; }
+.cg-band {
+  position: absolute; top: 0; height: 100%; width: 0; pointer-events: none;
+  background: no-repeat 0 0 / 100% 100%;
+  --fade: 40px;
+}
+.cg-band--l { left: 0; transform-origin: 0 50%; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent); }
+.cg-band--r { right: 0; transform-origin: 100% 50%; -webkit-mask-image: linear-gradient(270deg, #000 calc(100% - var(--fade)), transparent); mask-image: linear-gradient(270deg, #000 calc(100% - var(--fade)), transparent); }
+.cg-bow {
+  position: absolute; inset: 0; display: block; padding: 0; margin: 0; border: 0; border-radius: 50%;
+  background: none; cursor: pointer; color: inherit; font: inherit; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.cg-bow[aria-disabled="true"] { cursor: progress; }
+.cg-bow:focus { outline: none; }
+.cg-bow:focus-visible::before {
+  content: ''; position: absolute; inset: 24% 13% 10%; border-radius: 48% / 42%;
+  border: 1px dashed rgba(138, 100, 48, .6); box-shadow: 0 0 0 6px rgba(233, 207, 148, .18);
+}
+.cg-bow__lift {
+  position: absolute; inset: 0; transition: transform .7s var(--cg-ease); transform-origin: 50% var(--cg-knot-y, 45%);
+  opacity: 0; transform: translate3d(0, 14px, 0) scale(.94);
+}
+.cgate.is-bow .cg-bow__lift { opacity: 1; transform: none; transition: transform 1.6s var(--cg-ease), opacity 1.2s ease; }
+.cgate.is-ready.is-bow .cg-bow__lift { transition: transform .7s var(--cg-ease), opacity 1.2s ease; }
+.cg-bow__glow {
+  position: absolute; inset: -8%; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 47%, rgba(255, 246, 222, .95) 0%, rgba(240, 214, 160, .38) 34%, rgba(240, 214, 160, 0) 66%);
+  transition: opacity .7s var(--cg-ease);
+}
+.cg-bow__canvas, .cg-bow__img, .cg-bow__svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none;
+}
+.cg-bow__img, .cg-bow__svg { object-fit: contain; }
+.cg-bow__pulse {
+  position: absolute; left: 50%; top: var(--cg-knot-y, 45%); width: 46%; aspect-ratio: 1; margin-left: -23%;
+  transform: translateY(-50%) scale(.5); border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(255, 244, 214, .95) 0%, rgba(240, 210, 150, .45) 32%, rgba(240, 210, 150, 0) 66%);
+}
+.cgate.is-ready:not(.is-untie) .cg-bow__pulse { animation: cg-pulse 2.9s cubic-bezier(.2, .6, .3, 1) 1s infinite; }
+@keyframes cg-pulse {
+  0% { opacity: 0; transform: translateY(-50%) scale(.45); }
+  30% { opacity: .75; }
+  100% { opacity: 0; transform: translateY(-50%) scale(1.5); }
+}
+/* respiración CSS (modo póster / sin WebGL) */
+.cg-bow.is-static .cg-bow__img, .cg-bow.is-static .cg-bow__svg { animation: cg-breathe 3s ease-in-out infinite; transform-origin: 50% 52%; }
+@keyframes cg-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.018) translateY(-1px); } }
+@media (hover: hover) and (pointer: fine) {
+  .cgate.is-ready:not(.is-untie) .cg-bow:hover .cg-bow__lift { transform: translate3d(0, -5px, 0) scale(1.022); }
+  .cgate.is-ready:not(.is-untie) .cg-bow:hover .cg-bow__glow { opacity: .85; }
+}
+.cgate.is-ready:not(.is-untie) .cg-bow:focus-visible .cg-bow__glow { opacity: .7; }
+.cgate.is-ready:not(.is-untie) .cg-bow.is-press .cg-bow__lift { transform: translate3d(0, -3px, 0) scale(.985); transition-duration: .18s; }
+.cgate.is-ready:not(.is-untie) .cg-bow.is-press .cg-bow__glow { opacity: 1; }
+.cg-bow.is-nudge .cg-bow__lift { animation: cg-nudge .6s ease-in-out; }
+@keyframes cg-nudge { 0%, 100% { rotate: 0deg; } 25% { rotate: -2.2deg; } 60% { rotate: 1.6deg; } }
+/* desatado sin video (respaldo CSS) */
+.cg-bow.is-css-untie .cg-bow__img, .cg-bow.is-css-untie .cg-bow__svg { animation: cg-css-untie 2.1s cubic-bezier(.5, 0, .3, 1) forwards; }
+@keyframes cg-css-untie {
+  0% { transform: scale(1); opacity: 1; filter: blur(0); }
+  30% { transform: scale(1.06) rotate(-2deg); opacity: 1; filter: blur(0); }
+  100% { transform: scale(.82) translateY(-4%) rotate(3deg); opacity: 0; filter: blur(10px); }
+}
+
+.cg-hint {
+  margin: clamp(4px, 1.2svh, 14px) 0 0; font-family: var(--f-serif); font-style: italic; font-weight: 500;
+  font-size: clamp(17px, 4.5vw, 21px); line-height: 1.3; color: var(--cg-ink); letter-spacing: .02em;
+  opacity: 0; transform: translateY(6px); transition: opacity 1.2s ease, transform 1.2s var(--cg-ease);
+  cursor: pointer; touch-action: manipulation;
+}
+.cg-hint__in { display: inline-block; }
+.cgate.is-ready .cg-hint { opacity: 1; transform: none; }
+.cgate.is-ready .cg-hint__in { animation: cg-breath 3.4s ease-in-out 1.2s infinite; }
+@keyframes cg-breath { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.985); } }
+.cg-skip {
+  /* FIX: área táctil ≥ 44 px (antes 38 px de alto) */
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  margin: clamp(2px, 1.2svh, 14px) 0 0; padding: 10px 14px; background: none; border: 0; cursor: pointer; -webkit-appearance: none; appearance: none;
+  font-family: var(--f-sans); font-weight: 500; font-size: 10px; line-height: 1.4; letter-spacing: .26em; text-indent: .26em;
+  text-transform: uppercase; color: rgba(74, 52, 38, .62);
+  text-decoration: underline; text-decoration-color: rgba(184, 145, 79, .5); text-underline-offset: 6px; text-decoration-thickness: 1px;
+  transition: color .3s, text-decoration-color .3s, opacity .8s; touch-action: manipulation;
+}
+.cg-skip:hover { color: var(--cg-choc); text-decoration-color: var(--cg-gold); }
+.cg-skip:focus-visible { outline: 1px solid rgba(138, 100, 48, .6); outline-offset: 2px; border-radius: 4px; }
+.cg-skip[aria-disabled="true"] { opacity: .45; cursor: progress; }
+.cg-spacer { flex: 1 1 0; min-height: 4px; }
+.cg-spacer--b { flex-grow: 1.1; }
+
+/* La cara impresa solo muestra el texto; la capa interactiva solo lazo/hilo/pista/enlace.
+   (las dos capas comparten la misma maqueta para que todo quede alineado) */
+.cg-face .cg-thread, .cg-face .cg-bow-slot > *, .cg-face .cg-hint, .cg-face .cg-skip { visibility: hidden; }
+.cg-ui { position: absolute; inset: 0; }
+.cg-ui .cg-top { visibility: hidden; }
+.cg-ui .cg-col { pointer-events: none; }
+.cg-ui .cg-bow, .cg-ui .cg-hint, .cg-ui .cg-skip { pointer-events: auto; }
+.cg-ui .cg-thread, .cg-ui .cg-hint, .cg-ui .cg-skip { transition: opacity .7s ease, transform .9s var(--cg-ease); }
+.cgate.is-untie .cg-ui .cg-thread, .cgate.is-untie .cg-ui .cg-hint, .cgate.is-untie .cg-ui .cg-skip {
+  opacity: 0 !important; transform: translateY(8px); pointer-events: none;
+}
+.cgate.is-untie .cg-bow { cursor: default; }
+
+/* Destellos (partículas doradas) */
+.cg-sparks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* Entrada (al montar): el texto espera a las fuentes (sin parpadeo con la tipografía de respaldo) */
+.cgate:not(.is-in) .cg-face .cg-top, .cgate:not(.is-in) .cg-ui .cg-thread, .cgate:not(.is-in) .cg-ui .cg-skip { opacity: 0; }
+.cgate.is-in .cg-kicker { animation: cg-kick 2s var(--cg-ease) .15s both; }
+@keyframes cg-kick { from { opacity: 0; letter-spacing: .9em; } to { opacity: 1; letter-spacing: .46em; } }
+.cgate.is-in .cg-face .cg-names { animation: cg-stamp 2.2s var(--cg-ease) .45s both, cg-foil 7.5s cubic-bezier(.45, 0, .25, 1) 2.4s 3; }
+@keyframes cg-stamp {
+  from { opacity: 0; clip-path: inset(-20% 100% -20% 0); background-position: 115% 0, 0 0; }
+  30% { opacity: 1; }
+  to { opacity: 1; clip-path: inset(-20% 0 -20% 0); background-position: -15% 0, 0 0; }
+}
+.cgate.is-in .cg-date { animation: cg-rise 1.8s var(--cg-ease) 1.15s both; }
+.cgate.is-in .cg-ui .cg-thread { animation: cg-rise 1.4s var(--cg-ease) .9s both; }
+.cgate.is-in .cg-skip { animation: cg-rise 1.4s var(--cg-ease) 1.6s both; }
+@keyframes cg-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* Durante la apertura las caras quedan quietas (texturas estáticas → 60 fps al girar); gate.js pone .is-prep ~0.45 s antes */
+.cgate.is-prep .cg-face *, .cgate.is-prep .cg-face { animation-play-state: paused !important; }
+/* …y las capas de luz/sombra de la apertura se crean y rasterizan antes (el primer frame del giro no se atasca) */
+.cgate.is-prep .cg-under, .cgate.is-prep .cg-under__light, .cgate.is-prep .cg-flap__drop,
+.cgate.is-prep .cg-flap__shade, .cgate.is-prep .cg-flap__sheen { will-change: opacity, transform; }
+
+/* ---------- Pantallas bajas (móvil apaisado) ---------- */
+@media (max-height: 560px) and (min-aspect-ratio: 1/1) {
+  .cgate { --cg-bow: min(62svh, 46vw); }
+  .cg-col { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+  .cg-names { font-size: min(9.5vw, 13svh, 72px); }
+  .cg-thread { display: none; }
+  .cg-hint { margin-top: 0; font-size: 16px; }
+  .cg-skip { padding: 6px 14px; }
+  .cg-art--tl, .cg-art--br { width: clamp(110px, 22vw, 220px); }
+}
+@media (min-width: 900px) and (min-height: 700px) {
+  .cg-kicker { font-size: 12.5px; }
+}
+@media (min-width: 1500px) and (min-height: 900px) {
+  .cg-kicker { font-size: 13.5px; }
+  .cg-date { font-size: 26px; }
+  .cg-hint { font-size: 23px; }
+  .cg-skip { font-size: 11px; }
+}
+/* tabletas en vertical: el adorno superior no invade el título */
+@media (max-aspect-ratio: 3/4) and (min-width: 600px) {
+  .cg-art--tl, .cg-art--br { width: clamp(200px, 33vw, 300px); }
+}
+/* teléfonos bajos en vertical: los adornos no tocan el enlace */
+@media (max-aspect-ratio: 3/4) and (max-height: 700px) {
+  .cg-art--tl, .cg-art--br { width: clamp(120px, 36vw, 260px); }
+}
+/* el grano de película del sitio (style.css, .fx-grain) se suaviza sobre el papel crema */
+html:has(.cgate:not(.is-gone)) .fx-grain { opacity: .3; }
+
+/* ---------- Movimiento reducido ---------- */
+.cgate.cg-reduced *, .cgate.cg-reduced *::before, .cgate.cg-reduced *::after { animation: none !important; }
+.cgate.cg-reduced .cg-thread-draw { stroke-dashoffset: 0; }
+.cgate.cg-reduced .cg-fade-in { opacity: 1; }
+.cgate.cg-reduced .cg-glint { transform: scale(0); }
+@media (prefers-reduced-motion: reduce) {
+  .cgate *, .cgate *::before, .cgate *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; }
+}

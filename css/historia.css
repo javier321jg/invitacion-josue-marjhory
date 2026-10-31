@@ -1,0 +1,109 @@
+/* ==========================================================================
+   HISTORIA · «Nuestra historia» mágica (js/historia3d.js)
+   La foto se forma con flores en WebGL (lienzo .story__gl, a todo el ancho de la sección); las letras en oro.
+   Sin JS todo se ve tal cual: los estados "antes del revelado" solo existen cuando el módulo añade .h3d-text / .h3d-img.
+   ========================================================================== */
+.story { isolation: isolate; }
+.story__gl {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%);
+  z-index: 0; pointer-events: none; contain: strict;
+}
+.story__gl canvas { display: block; width: 100%; height: 100%; }
+.story__copy { position: relative; z-index: 1; }
+
+/* Con WebGL, el lienzo dibuja la foto, el marco, la sombra y la línea dorada del arco.
+   La <img> queda transparente (no oculta): su texto alternativo sigue disponible para lectores de pantalla. */
+.story.is-gl .story__frame { background: transparent; box-shadow: none; }
+.story.is-gl .story__frame img { opacity: 0; }
+.story.is-gl .story__frame::after,
+.story.is-gl .story__arch { visibility: hidden; }
+
+/* ---------- Oro de las letras ---------- */
+.story {
+  --h3d-gold: linear-gradient(172deg, #fff7df 0%, #f5dfaa 20%, #e2c182 38%, #c29651 55%, #e8cb8f 72%, #f8e6b8 84%, #c9a062 100%);
+  --h3d-gold-deep: linear-gradient(168deg, #fbe9bd 0%, #e7c487 26%, #c7994f 48%, #a9783a 62%, #dcb672 80%, #f1d69c 100%);
+  --h3d-gold-light: linear-gradient(90deg, #d9b878 0%, #f6e3b2 30%, #e6c88c 55%, #fbecc4 78%, #d6b475 100%);
+  --h3d-sheen: linear-gradient(105deg, transparent 38%, rgba(255, 252, 240, .95) 50%, transparent 62%);
+}
+.story__eyebrow {
+  background: var(--h3d-sheen), var(--h3d-gold-light);
+  background-size: 260% 100%, 100% 100%; background-position: 130% 0, 0 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.story__title { position: relative; }
+/* especificidad (0,3,0): gana a la regla de respaldo [data-escritura]:not(.esc-on) de css/escritura.css, que se carga después */
+.story .story__title .line {
+  width: fit-content; max-width: 100%; margin-inline: auto; padding: .04em .12em .16em; margin-block: -.04em -.16em;
+  background: var(--h3d-sheen), var(--h3d-gold);
+  background-size: 260% 100%, 100% 100%; background-position: 130% 0, 0 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.story .story__title em.line { background-image: var(--h3d-sheen), var(--h3d-gold-deep); color: transparent; }
+/* halo cálido detrás del título (estático: sin filtros que se recalculen mientras se escribe) */
+.story__title::before {
+  content: ''; position: absolute; inset: -18% -8% -10%; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(214, 186, 132, .11), rgba(214, 186, 132, .04) 60%, transparent);
+}
+.story .story__copy .signature {
+  background: var(--h3d-sheen), var(--h3d-gold);
+  background-size: 260% 100%, 100% 100%; background-position: 130% 0, 0 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-size: clamp(46px, 12vw, 58px); width: fit-content; margin-inline: auto;
+}
+.story__body { color: rgba(242, 229, 203, .86); }
+@media (min-width: 900px) {
+  .story .story__title .line, .story .story__copy .signature { margin-inline: 0; }
+}
+
+/* Brillo que recorre el oro al revelarse (una sola pasada) */
+@keyframes h3d-sheen { from { background-position: 130% 0, 0 0; } to { background-position: -30% 0, 0 0; } }
+.story__eyebrow.is-in, .story__title.is-in .line, .story .signature.is-in { animation: h3d-sheen 2.4s cubic-bezier(.45, .05, .25, 1) .5s 1 both; }
+.story__title.is-in em.line { animation-delay: 1.1s; }
+.story .signature.is-in { animation-delay: 1.4s; animation-duration: 2.8s; }
+
+/* ---------- Revelados (solo con el módulo activo) ---------- */
+.h3d-text .story__eyebrow { opacity: 0; letter-spacing: .62em; transition: opacity 1.4s var(--ease), letter-spacing 2s var(--ease); }
+.h3d-text .story__eyebrow.is-in { opacity: 1; letter-spacing: .34em; }
+
+/* párrafo: palabra por palabra, de un destello dorado a la tinta marfil (tinta que se seca) */
+.h3d-text .story__body .h3d-w {
+  display: inline-block; opacity: 0; transform: translate3d(0, .55em, 0); filter: blur(5px); color: #f8e7bd;
+  transition: opacity .95s var(--ease), transform 1.25s var(--ease), filter 1.1s var(--ease), color 1.8s ease;
+  transition-delay: calc(var(--bd, .35s) + var(--i) * 46ms), calc(var(--bd, .35s) + var(--i) * 46ms),
+    calc(var(--bd, .35s) + var(--i) * 46ms), calc(var(--bd, .35s) + var(--i) * 46ms + .7s);
+}
+.h3d-text .story__body.is-in .h3d-w { opacity: 1; transform: none; filter: blur(0); color: inherit; }
+
+/* título y firma sin js/escritura.js: tinta dorada que corre de izquierda a derecha (máscara con borde suave;
+   no clip-path: el IntersectionObserver de Chrome trata un elemento recortado del todo como invisible) */
+.h3d-text [data-escritura].h3d-ink {
+  -webkit-mask-image: linear-gradient(90deg, #000 0 45%, transparent 55% 100%); mask-image: linear-gradient(90deg, #000 0 45%, transparent 55% 100%);
+  -webkit-mask-size: 260% 100%; mask-size: 260% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: 100% 0; mask-position: 100% 0; filter: blur(5px); opacity: .3;
+  transition: -webkit-mask-position 2.1s cubic-bezier(.5, .1, .25, 1), mask-position 2.1s cubic-bezier(.5, .1, .25, 1), filter 1.5s ease, opacity 1.2s ease;
+}
+.h3d-text .is-in [data-escritura].h3d-ink, .h3d-text [data-escritura].h3d-ink.is-in { -webkit-mask-position: 0 0; mask-position: 0 0; filter: blur(0); opacity: 1; }
+.h3d-text .is-in em[data-escritura].h3d-ink { transition-delay: .75s; }
+.h3d-text .signature[data-escritura].h3d-ink { transition-duration: 2.6s, 2.6s, 1.8s, 1.4s; transition-delay: .3s; }
+
+/* ---------- Foto sin WebGL (o sin GPU real): revelado de cortina; movimiento reducido: fundido ---------- */
+.story.h3d-img .story__frame { clip-path: inset(100% 0 0 0); transition: clip-path 1.8s cubic-bezier(.7, 0, .2, 1); }
+.story.h3d-img .story__frame img { scale: 1.3; transition: scale 2.6s var(--ease) .15s; }
+.story.h3d-img .story__arch { opacity: 0; scale: .95; transition: opacity 1.6s var(--ease) .9s, scale 1.8s var(--ease) .9s; }
+.story.h3d-img .story__photo.is-in .story__frame { clip-path: inset(0 0 0 0); }
+.story.h3d-img .story__photo.is-in .story__frame img { scale: 1; }
+.story.h3d-img .story__photo.is-in .story__arch { opacity: 1; scale: 1; }
+
+.h3d-rm .story__eyebrow, .h3d-rm .story__body .h3d-w, .h3d-rm [data-escritura].h3d-ink {
+  transform: none !important; filter: none !important; letter-spacing: .34em; -webkit-mask-image: none !important; mask-image: none !important;
+  transition: opacity 1s ease !important; transition-delay: 0s !important;
+}
+.h3d-rm .story__body .h3d-w { letter-spacing: normal; color: inherit; }
+.h3d-rm .story__eyebrow.is-in, .h3d-rm .story__title.is-in .line, .h3d-rm .signature.is-in { animation: none; }
+.story.h3d-img.h3d-rm .story__frame { clip-path: none; opacity: 0; transition: opacity 1.4s ease; }
+.story.h3d-img.h3d-rm .story__frame img { scale: 1; transition: none; }
+.story.h3d-img.h3d-rm .story__photo.is-in .story__frame { opacity: 1; }
+.story.h3d-img.h3d-rm .story__arch { scale: 1; transition: opacity 1.4s ease .4s; }
+
+/* Mientras se prepara el WebGL: el arco vacío (la foto se formará con flores; si el WebGL falla, js revela la <img>) */
+.story.h3d-wait .story__frame img { opacity: 0; }
