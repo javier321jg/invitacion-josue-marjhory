@@ -466,6 +466,9 @@ export async function mountFinal(section, opts = {}) {
       powerPreference: 'high-performance', failIfMajorPerformanceCaveat: !ALLOW_SW,
     });
     const gl = renderer.getContext();
+    // UNIR: compilación en paralelo activada ANTES de compilar (ANGLE/D3D11 compilaba el sombreador del cielo en el hilo
+    // principal de la GPU: un cuadro congelado de ~450 ms en toda la página al acercarse a #final)
+    gl.getExtension('KHR_parallel_shader_compile');
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const name = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
     if (!ALLOW_SW && /SwiftShader|llvmpipe|softpipe|Basic Render|Software Rasterizer/i.test(name)) throw new Error('render por software (' + name + ')');
@@ -579,6 +582,9 @@ export async function mountFinal(section, opts = {}) {
     api.quality = tier;
   };
   resize();
+  // UNIR: declarado antes de los avisos de tamaño: durante el await de compileAsync un resize (la barra del navegador móvil
+  // al desplazarse) o un cambio de maquetación llamaba a kick() y fallaba con "Cannot access 'inView' before initialization"
+  let running = false, raf = 0, last = 0, inView = false;
   let rt = 0;
   const onResize = () => { clearTimeout(rt); rt = setTimeout(() => { resize(); kick(); }, 90); };
   addEventListener('resize', onResize, { passive: true });
@@ -586,8 +592,8 @@ export async function mountFinal(section, opts = {}) {
   try { ro = new ResizeObserver(() => { const t = secTop; measureSec(); if (Math.abs(t - secTop) > 1) kick(); }); ro.observe(document.querySelector('main') || document.body); } catch { ro = null; }
   function measureSec() { const s = section.getBoundingClientRect(); secTop = s.top + scrollY; secH = s.height; }
 
-  // compila antes del primer cuadro visible
-  try { renderer.compile(scene, camera); } catch {}
+  // compila antes del primer cuadro visible (UNIR: sin bloquear, ver KHR_parallel_shader_compile arriba)
+  try { await renderer.compileAsync(scene, camera); } catch {}
 
   // ---------- entrada del usuario: mouse / giroscopio
   const tgt = { x: 0, y: 0 }, cur = { x: 0, y: 0 };
@@ -623,8 +629,7 @@ export async function mountFinal(section, opts = {}) {
   };
   const reset = () => { st.k = 0; st.reveal = 0; st.revealT0 = -1; st.sunT0 = -1; st.shootAt = -1; };
 
-  let running = false, raf = 0, last = 0, inView = false;
-  const sunScreenX = () => (vh > vw * 1.05 ? 0.78 : 0.73);
+  const sunScreenX =() => (vh > vw * 1.05 ? 0.78 : 0.73);
   const skylineAt = x => {
     const a = meta.lineaCielo || [];
     if (!a.length) return meta.horizonte || 0.35;

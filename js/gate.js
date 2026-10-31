@@ -614,8 +614,10 @@ void main(){ gl_FragColor = vec4((a(-uPx) + a(uPx) + a(vec2(uPx.x, -uPx.y)) + a(
         fetchBlob(assets.reposo, p => { st.dl.a = p; report(); }),
         fetchBlob(assets.abrir, p => { st.dl.b = p; report(); }),
       ]);
-      const ua = URL.createObjectURL(ba), ub = URL.createObjectURL(bb);
-      st.urls.push(ua, ub);
+      // iPhone/Safari (WebKit) no reproduce video desde blob: (MEDIA_ERR_SRC_NOT_SUPPORTED, código 4; verificado en WebKit):
+      // los <video> usan las URL directas. La descarga de arriba solo da el progreso y deja los archivos en la caché HTTP.
+      void ba; void bb;
+      const ua = assets.reposo, ub = assets.abrir;
       initGL();
       const A = st.A = makeVideo(ua, true), B = st.B = makeVideo(ub, false);
       B.addEventListener('ended', () => { st.abrirEnded = true; });
@@ -1118,12 +1120,16 @@ export async function mountGate(gateEl, opts = {}) {
     if (now() - S.t0 > maxWait) v = 1;           // nunca se queda atascada
     return (S.ext = v);
   }
+  let tickT = now();
   function progressTick() {
     S.raf = 0;
     if (S.disposed) return;
+    // COMPAT: suavizado por tiempo real (≈ .07 por cuadro a 60 fps). Antes era por cuadro y en celulares lentos el hilo tardaba
+    // muchos segundos en llenarse y el lazo no se podía tocar aunque todo ya estuviera cargado.
+    const t = now(), dt = Math.min(.25, Math.max(0, (t - tickT) / 1000)); tickT = t;
     const ext = readExt();
     const target = clamp(ext * .78 + S.own * .22) * (S.ownReady ? 1 : .985);
-    S.shown += (target - S.shown) * (reduced ? 1 : .07);
+    S.shown += (target - S.shown) * (reduced ? 1 : 1 - Math.exp(-dt * 4.4));
     if (Math.abs(target - S.shown) < .0015) S.shown = target;
     const p = S.shown;
     els.prog.style.strokeDashoffset = String(1 - p);

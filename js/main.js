@@ -6,6 +6,9 @@
 //   ?nogl=1    fuerza el modo sin WebGL (imágenes + pergamino HTML)
 //   ?reduced=1 fuerza movimiento reducido
 //   ?skipgate=1 entra directamente (sin música) — para capturas
+//   ?pluma=0   quita la pluma visible de js/pluma.js (por defecto se engancha a scroll3d con attachQuill)
+// ESCENA (decisión n.º 5): el pergamino se abre solo al quedar fija su sección, el scroll guía la secuencia (setScrollProgress,
+// ritmo = max(tiempo, scroll) con tope) y la sección no se suelta hasta que todo está escrito y con los CTA (parchBrake).
 import * as C from './content.js';
 import { initGrain, initFiber, initDust, initGlow } from './shell-fx.js';
 import { buildParchmentCard, fillA11yCopy, buildIcsHref, initGallery, initCountdown, initMusicButton } from './shell-ui.js';
@@ -190,6 +193,7 @@ async function loadRings() {
     });
     const r = await withTimeout(mounting, 25000, 'anillos');
     state.rings = inv.rings = r;
+    watchLost(els.ringsStage, () => { if (state.rings === r) ringsFallback(); }, 'anillos');
     // FIX: bajo la puerta (opaca) no se dibuja nada: se reanuda al tocar el lazo (enter)
     if (!state.entered) { try { r.pause(); } catch {} }
     prog.rings = 1;
@@ -222,6 +226,15 @@ async function loadScroll() {
     // tarde se libera (antes quedaba dibujando en un lienzo ya quitado de la página)
     if (state.fallbackScroll) { try { s.dispose(); } catch {} return null; }
     state.scroll = inv.scroll = s;
+    watchLost(els.scrollStage, () => {
+      if (state.scroll !== s) return;
+      // la sección deja de ser fija (la página se acorta): si el invitado estaba en el pergamino, se le deja en la tarjeta;
+      // si se estaba abriendo (su reloj ya no avanza sin dibujar), la tarjeta se abre
+      const wasVisible = !!state.parchVisible, wasOpening = state.opening && !state.opened;
+      scrollFallback();
+      if (wasVisible) { try { state.fallbackCard?.scrollIntoView({ block: 'start' }); } catch {} }
+      if (wasOpening) { state.opening = false; openParchment('auto'); }
+    }, 'pergamino');
     state.scrollReadyAt = performance.now();
     els.scrollStage.classList.add('is-live');
     parchWait(false);
@@ -236,9 +249,9 @@ async function loadScroll() {
 }
 
 /** ESCENA · pluma visible (js/pluma.js de PLUMA-WEB) enganchada a scroll3d con attachQuill (precompila, coloca el tintero en
- *  su lugar reservado y la mueve con la escritura). UNIR: activarla por defecto cambiando QUILL_ON a `qs.get('pluma') !== '0'`.
- *  Hoy solo con ?pluma=1 (mientras PLUMA-WEB termina). Si falla, la escritura sigue con la pluma invisible. */
-const QUILL_ON = qs.get('pluma') === '1';
+ *  su lugar reservado y la mueve con la escritura). UNIR: activa por defecto; ?pluma=0 la quita (pluma invisible).
+ *  Si falla, la escritura sigue con la pluma invisible. */
+const QUILL_ON = qs.get('pluma') !== '0';
 async function loadQuill(s) {
   if (!QUILL_ON || !s?.attachQuill) return;
   try {
@@ -335,6 +348,18 @@ function setHintPreparing(on) {
 /* ------------------------------------------------------------------------ */
 /* Alternativas sin WebGL                                                    */
 /* ------------------------------------------------------------------------ */
+/** UNIR (compatibilidad móvil): iOS y Android pueden quitarle a la página un contexto WebGL por memoria (varias escenas 3D,
+ *  pestaña en segundo plano). historia3d, final3d y la puerta ya pasan a su imagen; los anillos y el pergamino quedaban en
+ *  negro. Ahora pasan a la imagen / tarjeta HTML (si el pergamino ya estaba abierto, la tarjeta queda abierta). */
+function watchLost(stage, fallback, label) {
+  for (const c of stage.querySelectorAll('canvas')) {
+    c.addEventListener('webglcontextlost', () => {
+      console.warn('[inv] ' + label + ': contexto WebGL perdido, uso la alternativa');
+      setTimeout(() => { try { fallback(); } catch (e) { console.warn('[inv] alternativa:', e?.message || e); } }, 0);
+    }, { once: true });
+  }
+}
+
 function ringsFallback() {
   if (state.fallbackRings) return;
   state.fallbackRings = true;
@@ -645,7 +670,8 @@ async function openParchment(source) {
       } catch {}
       card.classList.remove('is-closed');
       card.removeAttribute('aria-hidden');
-      try { card.scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' }); } catch {}
+      // UNIR: la apertura automática no mueve el scroll del invitado (solo el toque lleva la tarjeta a la vista)
+      if (source !== 'auto') { try { card.scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' }); } catch {} }
       await sleep(REDUCED ? 600 : 2500);
     }
     handleOpened();
@@ -696,9 +722,9 @@ function parchBrake(pr, vh) {
   refreshTriggers(500);
 }
 
-/* ESCENA · zona segura del encuadre de lectura/final: lo que tapan los CTA (abajo en móvil y tableta, columna a la derecha en
- * escritorio ancho) y el botón de música (arriba a la derecha en móvil). Los CTA están maquetados aunque ocultos
- * (visibility), así que se miden siempre. */
+/* ESCENA · zona segura del encuadre final: lo que tapan los CTA (abajo en móvil y tableta, columna a la derecha en escritorio
+ * ancho y en apaisado bajo). Los CTA están maquetados aunque ocultos (visibility), así que se miden siempre; scroll3d encuadra
+ * el pergamino en el resto (nunca debajo de los botones). */
 function measureParchSafe() {
   const sc = state.scroll;
   if (!sc?.setSafeArea) return;
@@ -764,6 +790,12 @@ function update() {
   if (state.entered && autoOpenArmed && !state.fallbackScroll && pr.top <= 2 && pr.bottom > vh * .5 && !state.opened && !state.opening && state.scroll) {
     autoOpenArmed = false;
     openParchment('auto');
+  }
+  // UNIR (teléfonos sin WebGL 2 o con la tarjeta de respaldo): la tarjeta HTML también se abre sola cuando queda bien a la
+  // vista, como el pergamino 3D al quedar fijo. Antes solo se abría tocando el sello y quien seguía bajando nunca veía el texto.
+  if (state.entered && autoOpenArmed && state.fallbackScroll && state.fallbackCard && !state.opened && !state.opening) {
+    const cr = state.fallbackCard.getBoundingClientRect();
+    if (cr.top < vh * .6 && cr.bottom > vh * .3) { autoOpenArmed = false; openParchment('auto'); }
   }
   parchBrake(pr, vh);
   // Polvo de oro: solo en secciones sin 3D

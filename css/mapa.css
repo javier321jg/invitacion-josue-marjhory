@@ -1,0 +1,503 @@
+/* ==========================================================================
+   MAPA · mini mapa dorado de la ubicación (js/mapa.js) — SPEC decisión n.º 7
+   Tarjeta de noche cálida con marco dorado: el relieve real del valle del Pampas (horneado) y los ríos y caminos de
+   OpenStreetMap se dibujan solos como tinta dorada, la cámara baja del valle al pueblo, cae un pin dorado que late
+   y aparece la tarjeta con lugar, fecha y hora. Tocar el mapa o "Abrir en Google Maps" → EVENT.mapUrl;
+   "Cómo llegar" → EVENT.directionsUrl.
+   Sin JS: tarjeta con el lugar/fecha/hora y enlaces de texto a Google Maps (sin mapa).
+   Ajustes desde fuera (opcionales): --mapa-max-w (ancho máx.), --mapa-ar (aspecto del mapa), --mapa-max-h (alto máx.).
+   ========================================================================== */
+
+.mapa {
+  --mapa-max-w: 760px;
+  --mapa-ar: 1.08;                      /* ancho / alto del mapa (móvil vertical) */
+  --mapa-max-h: 50svh;
+  --m-gold: #d6ba84;
+  --m-gold-2: #b8925a;
+  --m-gold-hi: #f6e3b4;
+  --m-ivory: #f2e5cb;
+  --m-ink: #120c09;
+  --m-line: rgba(214, 186, 132, .5);
+  --m-serif: var(--f-serif, 'Cormorant Garamond', 'Cormorant', Garamond, 'Times New Roman', serif);
+  --m-sans: var(--f-sans, 'Montserrat', 'Segoe UI', system-ui, sans-serif);
+  --m-ease: cubic-bezier(.16, 1, .3, 1);
+  position: relative; width: 100%; max-width: var(--mapa-max-w); margin: 22px auto 0; text-align: left;
+  font-family: var(--m-serif); color: var(--m-ivory); -webkit-tap-highlight-color: transparent;
+}
+@media (min-width: 560px) { .mapa { --mapa-ar: 1.5; } }
+@media (min-width: 900px) { .mapa { --mapa-ar: 1.72; --mapa-max-h: 54svh; } }
+
+/* ---------- tarjeta ---------- */
+.mapa__card {
+  position: relative; padding: 9px; border-radius: 22px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(214, 186, 132, .09), rgba(214, 186, 132, 0) 60%),
+    linear-gradient(180deg, #1d1510 0%, #140e0b 55%, #0f0a08 100%);
+  border: 1px solid rgba(214, 186, 132, .55);
+  box-shadow:
+    0 34px 70px -30px rgba(0, 0, 0, .92), 0 12px 30px -18px rgba(0, 0, 0, .7),
+    inset 0 1px 0 rgba(255, 240, 210, .14), inset 0 0 0 1px rgba(0, 0, 0, .35);
+  isolation: isolate;
+}
+/* filete dorado interior (doble línea del marco) */
+.mapa__card::before {
+  content: ''; position: absolute; inset: 4px; border-radius: 18px; pointer-events: none;
+  border: 1px solid rgba(214, 186, 132, .16);
+}
+.mapa__frame { position: relative; border-radius: 15px; }
+
+/* ---------- sin JS (o antes de montar): enlaces de texto ---------- */
+.mapa__map {
+  display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 16px; border-radius: 15px;
+  color: var(--m-gold-hi); text-decoration: none; font-family: var(--m-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: .2em; text-transform: uppercase; background: rgba(214, 186, 132, .08); border: 1px solid rgba(214, 186, 132, .3);
+}
+.mapa__nojs::after { content: ' \2197'; }
+.mapa__info { padding: 14px 10px 6px; text-align: center; }
+.mapa__lugar {
+  margin: 0; font-family: var(--m-serif); font-weight: 600; font-size: 21px; line-height: 1.12; letter-spacing: .01em;
+  background: linear-gradient(176deg, #fff8e6 10%, #f6e3b4 45%, #d6ba84 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.mapa__cuando {
+  margin: 6px 0 0; font-family: var(--m-sans); font-weight: 600; font-size: 9.5px; line-height: 1.5; letter-spacing: .2em;
+  text-indent: .2em; text-transform: uppercase; color: var(--m-gold);
+}
+.mapa__cuando time { color: inherit; }
+
+/* ---------- botones (≥ 44 px) ---------- */
+.mapa__acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 9px; }
+.mapa__btn {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; padding: 8px 12px;
+  border-radius: 14px; text-decoration: none; text-align: center; overflow: hidden; isolation: isolate;
+  font-family: var(--m-sans); font-weight: 600; font-size: 10.5px; line-height: 1.25; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--m-gold-hi); background: rgba(214, 186, 132, .07); border: 1px solid rgba(214, 186, 132, .5);
+  transition: transform .45s var(--m-ease), background .3s, border-color .3s, box-shadow .45s var(--m-ease), color .3s;
+}
+.mapa__btn svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.mapa__btn--oro {
+  color: #1d1109; border-color: transparent;
+  background: linear-gradient(135deg, #fbecc8 0%, #e2c58f 32%, #b98d55 66%, #ecd29f 100%);
+  box-shadow: 0 14px 30px -16px rgba(214, 186, 132, .8), inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -1px 0 rgba(90, 55, 20, .35);
+}
+.mapa__btn--oro::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, .7) 46%, transparent 62%);
+  transform: translateX(-120%);
+}
+.mapa.is-on .mapa__btn--oro::after { animation: mapaBrillo 4.2s cubic-bezier(.7, 0, .2, 1) 1.5s infinite; }
+@keyframes mapaBrillo { 0% { transform: translateX(-120%); } 50%, 100% { transform: translateX(120%); } }
+@media (hover: hover) and (pointer: fine) {
+  .mapa__btn:hover { transform: translateY(-2px); background: rgba(214, 186, 132, .16); border-color: rgba(214, 186, 132, .85); color: #fff4dc; }
+  .mapa__btn--oro:hover { background: linear-gradient(135deg, #fff2d6 0%, #ecd09c 32%, #c49a60 66%, #f3dbab 100%); color: #1d1109;
+    box-shadow: 0 20px 40px -16px rgba(214, 186, 132, .95), inset 0 1px 0 rgba(255, 255, 255, .75); }
+}
+.mapa__btn:active { transform: scale(.97); transition-duration: .08s; }
+.mapa__btn:focus-visible, .mapa__map:focus-visible { outline: 2px solid var(--m-gold-hi); outline-offset: 3px; }
+@media (min-width: 560px) {
+  .mapa__acciones { gap: 10px; margin-top: 10px; }
+  .mapa__btn { font-size: 11px; letter-spacing: .18em; }
+}
+
+/* atribución (siempre visible) */
+.mapa__atrib {
+  margin: 8px 4px 0; font-family: var(--m-sans); font-weight: 500; font-size: 9px; line-height: 1.4; letter-spacing: .02em;
+  color: rgba(242, 229, 203, .62); text-align: right;
+}
+.mapa__atrib a { color: inherit; text-decoration: underline; text-decoration-color: rgba(214, 186, 132, .45); text-underline-offset: 2px; }
+
+/* ==========================================================================
+   Con JS (js/mapa.js añade .is-on y construye el escenario dentro de .mapa__map)
+   ========================================================================== */
+.mapa.is-on .mapa__map {
+  position: relative; display: block; padding: 0; min-height: 0; border: 0; overflow: hidden; border-radius: 15px;
+  font-family: var(--m-serif); font-weight: 400; font-size: 16px; letter-spacing: normal; text-transform: none; line-height: 1.2; color: var(--m-ivory);
+  aspect-ratio: var(--mapa-ar); max-height: var(--mapa-max-h); width: 100%;
+  background: #0a0809; cursor: pointer; -webkit-mask-image: -webkit-radial-gradient(white, black); /* recorte redondeado estable en Safari */
+  transform: translateZ(0);
+}
+.mapa.is-on .mapa__nojs { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.mapa.is-on .mapa__frame { transform: perspective(1100px); transform-style: flat; }   /* js/mapa.js inclina con estilo en línea */
+.mapa.is-tilt .mapa__frame { will-change: transform; }
+
+.mapa__stage { position: absolute; inset: 0; overflow: hidden; contain: strict; }
+.mapa__suelo, .mapa__flota { position: absolute; inset: -14px; }      /* margen para el parallax (lo mueve js/mapa.js) */
+.mapa__flota { pointer-events: none; }
+.mapa__suelo > *, .mapa__flota > * { position: absolute; left: 14px; top: 14px; }
+
+/* relieve (dos imágenes: valle y pueblo; la cámara las mueve con transform) */
+.mapa__rel { position: absolute; left: 14px; top: 14px; max-width: none; transform-origin: 0 0; opacity: 0; user-select: none; -webkit-user-drag: none; }
+.mapa__rel--pueblo {
+  -webkit-mask-image: radial-gradient(closest-side, #000 74%, rgba(0, 0, 0, 0) 100%); mask-image: radial-gradient(closest-side, #000 74%, rgba(0, 0, 0, 0) 100%);
+}
+.mapa.is-anim .mapa__rel { will-change: transform, opacity; }
+
+/* vectores */
+.mapa__svg { position: absolute; overflow: visible; --k: 1; }
+.mapa__svg path { vector-effect: none; }
+.mapa__svg .l { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+.mapa__svg .l.is-full { stroke-dasharray: none; }
+.mapa__svg .a { stroke: none; }
+/* — valle — */
+.mapa__svg .v-agua { fill: rgba(214, 186, 132, .2); stroke: rgba(246, 227, 180, .5); stroke-width: calc(var(--k) * .6px); }
+.mapa__svg .v-quebrada { stroke: rgba(214, 186, 132, .42); stroke-width: calc(var(--k) * .7px); }
+.mapa__svg .v-vecinal { stroke: rgba(184, 146, 90, .5); stroke-width: calc(var(--k) * .6px); }
+.mapa__svg .v-terciaria { stroke: rgba(196, 160, 104, .8); stroke-width: calc(var(--k) * .9px); }
+.mapa__svg .v-secundaria { stroke: #d2b47e; stroke-width: calc(var(--k) * 1.2px); }
+.mapa__svg .v-primaria { stroke: #dcc08a; stroke-width: calc(var(--k) * 1.45px); }
+.mapa__svg .v-rio-b { stroke: rgba(226, 222, 206, .11); stroke-width: 260px; }
+.mapa__svg .v-rio-b.is-menor { stroke-width: 120px; }
+.mapa__svg .v-rio { stroke: #ece6d2; stroke-width: calc(var(--k) * 1.5px); }
+.mapa__svg .v-rio.is-main { stroke-width: calc(var(--k) * 2.1px); }
+.mapa__svg .v-rio-h { stroke: rgba(240, 226, 191, .16); stroke-width: calc(var(--k) * 7px); }
+.mapa__svg .v-troncal { stroke: #f6e3b4; stroke-width: calc(var(--k) * 2.3px); }
+.mapa__svg .v-troncal-h { stroke: rgba(246, 210, 140, .22); stroke-width: calc(var(--k) * 8px); }
+/* — pueblo — */
+.mapa__svg .p-residencial { fill: rgba(214, 186, 132, .085); stroke: rgba(214, 186, 132, .28); stroke-width: calc(var(--k) * .6px); stroke-dasharray: none; }
+.mapa__svg .p-escuela { fill: rgba(214, 186, 132, .16); stroke: rgba(214, 186, 132, .45); stroke-width: calc(var(--k) * .6px); }
+.mapa__svg .p-estadio { fill: rgba(214, 186, 132, .22); stroke: rgba(246, 227, 180, .75); stroke-width: calc(var(--k) * .8px); }
+.mapa__svg .p-edificio { fill: rgba(240, 214, 160, .72); stroke: rgba(255, 244, 214, .6); stroke-width: calc(var(--k) * .4px); }
+.mapa__svg .p-sendero { stroke: rgba(184, 146, 90, .55); stroke-width: calc(var(--k) * .7px); }
+.mapa__svg .p-trocha { stroke: rgba(196, 160, 104, .72); stroke-width: calc(var(--k) * .95px); }
+.mapa__svg .p-calle { stroke: #cfb07a; stroke-width: calc(var(--k) * 1.25px); }
+.mapa__svg .p-via { stroke: #dcc08a; stroke-width: calc(var(--k) * 1.6px); }
+/* lecho ancho y claro del Pampas (en la foto del pueblo se ve así): dos bandas en metros + hilo de agua */
+.mapa__svg .p-rio-b { stroke: rgba(226, 222, 206, .075); stroke-width: 190px; }
+.mapa__svg .p-rio-b2 { stroke: rgba(236, 230, 212, .11); stroke-width: 85px; }
+.mapa__svg .p-rio-b.is-menor { stroke-width: 70px; }
+.mapa__svg .p-rio-b2.is-menor { stroke-width: 30px; }
+.mapa__svg .p-rio { stroke: #ece6d2; stroke-width: calc(var(--k) * 1.7px); stroke-opacity: .9; }
+.mapa__svg .p-rio-h { stroke: rgba(236, 230, 212, .12); stroke-width: calc(var(--k) * 6px); }
+.mapa__svg .p-troncal { stroke: #f6e3b4; stroke-width: calc(var(--k) * 2.6px); }
+.mapa__svg .p-troncal-h { stroke: rgba(246, 210, 140, .22); stroke-width: calc(var(--k) * 9px); }
+/* — ruta de acceso (de la PE-3S al pin) — */
+.mapa__svg .r-h2 { stroke: rgba(255, 214, 140, .12); stroke-width: calc(var(--k) * 16px); }
+.mapa__svg .r-h { stroke: rgba(255, 222, 160, .3); stroke-width: calc(var(--k) * 7.5px); }
+.mapa__svg .r-l { stroke: #fff1cf; stroke-width: calc(var(--k) * 2.8px); }
+.mapa__svg .r-ant { fill: none; stroke: #fffaf0; stroke-linecap: round; stroke-width: calc(var(--k) * 2.2px); stroke-dasharray: .9 2.7; opacity: 0; }
+.mapa.is-idle .mapa__svg .r-ant { opacity: .95; animation: mapaHormigas 1.6s linear infinite; }
+@keyframes mapaHormigas { to { stroke-dashoffset: -3.6; } }
+/* — chispa de tinta en la punta del trazo — */
+.mapa__svg .chispa { fill: none; stroke-linecap: round; stroke: #fffaf0; stroke-width: calc(var(--k) * 5px); stroke-dasharray: .0001 3; opacity: 0; }
+.mapa__svg .chispa-h { fill: none; stroke-linecap: round; stroke: rgba(255, 226, 160, .35); stroke-width: calc(var(--k) * 15px); stroke-dasharray: .0001 3; opacity: 0; }
+
+/* ---------- nombres (HTML sobre el mapa) ---------- */
+.mapa__nombres { width: 0; height: 0; }
+.mapa__n {
+  position: absolute; left: 0; top: 0; white-space: nowrap; opacity: 0; will-change: auto;
+  transition: opacity .55s ease; pointer-events: none;
+}
+.mapa__n > span {
+  display: block; transform: translate(-50%, -50%);
+  text-shadow: 0 0 3px rgba(8, 6, 6, .95), 0 0 8px rgba(8, 6, 6, .85), 0 1px 1px rgba(0, 0, 0, .8);
+}
+.mapa__n.is-v { opacity: 1; }
+.mapa__n--pueblo > span, .mapa__n--ciudad > span {
+  font-family: var(--m-sans); font-weight: 600; font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--m-ivory);
+}
+.mapa__n--ciudad > span { font-size: 10.5px; color: #fff3da; }
+.mapa__n--villa > span { font-family: var(--m-serif); font-style: italic; font-weight: 500; font-size: 14px; letter-spacing: .02em; color: rgba(242, 229, 203, .86); }
+.mapa__n--caserio > span { font-family: var(--m-serif); font-style: italic; font-weight: 500; font-size: 13px; color: rgba(242, 229, 203, .7); }
+.mapa__n--rio > span { font-family: var(--m-serif); font-style: italic; font-weight: 600; font-size: 13.5px; letter-spacing: .16em; color: #f3e2b9; }
+.mapa__n--hito > span { font-family: var(--m-serif); font-style: italic; font-weight: 600; font-size: 12.5px; color: rgba(246, 227, 180, .9); }
+/* el pueblo del evento */
+.mapa__n--meta > span {
+  font-family: var(--m-sans); font-weight: 600; font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: #fff1cc;
+  text-shadow: 0 0 3px rgba(8, 6, 6, 1), 0 0 10px rgba(8, 6, 6, .9), 0 0 18px rgba(214, 160, 80, .45);
+}
+/* rumbos: hacia dónde va la carretera (Ayacucho ← · → Andahuaylas) */
+.mapa__n--rumbo > span {
+  display: flex; align-items: center; gap: 6px; font-family: var(--m-sans); font-weight: 600; font-size: 9px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--m-gold-hi); padding: 4px 9px 4px 7px; border-radius: 999px;
+  background: rgba(14, 10, 8, .78); border: 1px solid rgba(214, 186, 132, .45); text-shadow: none;
+}
+.mapa__n--rumbo i { display: block; width: 12px; height: 12px; flex: none; transform: rotate(var(--a, 0deg)); }
+.mapa__n--rumbo i::before { content: ''; display: block; width: 100%; height: 100%;
+  background: currentColor; clip-path: polygon(0 38%, 58% 38%, 58% 12%, 100% 50%, 58% 88%, 58% 62%, 0 62%); }
+/* escudo de la carretera */
+.mapa__n--ref > span {
+  font-family: var(--m-sans); font-weight: 700; font-size: 8.5px; letter-spacing: .1em; color: #1d1109; padding: 2px 6px 2px 7px;
+  border-radius: 5px; background: linear-gradient(180deg, #f6e3b4, #c9a46b); box-shadow: 0 2px 6px rgba(0, 0, 0, .6); text-shadow: none;
+}
+
+.mapa__svg2 { pointer-events: none; }
+
+/* ---------- objetivo (región) y pin (pueblo) ---------- */
+.mapa__meta, .mapa__pin { width: 0; height: 0; }
+.mapa__meta { opacity: 0; }
+.mapa__meta i {
+  position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle, #fffaf0 0 28%, #f6d58f 34% 52%, rgba(214, 160, 80, 0) 70%);
+}
+.mapa__meta b {
+  position: absolute; left: -18px; top: -18px; width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid rgba(255, 228, 170, .9);
+  opacity: 0;
+}
+.mapa.is-meta .mapa__meta b { animation: mapaOnda 1.5s cubic-bezier(.2, .7, .3, 1) infinite; }
+.mapa.is-meta .mapa__meta b + b { animation-delay: .5s; }
+
+.mapa__pin { opacity: 0; }
+.mapa.is-rayo .mapa__pin, .mapa.is-pin .mapa__pin { opacity: 1; }
+.mapa__pin-esc { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: scale(var(--pin-s, 1)); }
+@media (min-width: 560px) { .mapa { --pin-s: 1.14; } }
+.mapa__pin-cuerpo, .mapa__pin-ondas, .mapa__pin-chispas { opacity: 0; }
+.mapa.is-pin .mapa__pin-cuerpo, .mapa.is-pin .mapa__pin-ondas, .mapa.is-pin .mapa__pin-chispas { opacity: 1; }
+/* charco de luz cálida en el suelo alrededor del lugar */
+.mapa__pin-luz {
+  position: absolute; left: -110px; top: -70px; width: 220px; height: 140px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 214, 150, .2), rgba(255, 200, 130, .08) 55%, rgba(255, 190, 120, 0));
+  transition: opacity 1.4s ease .3s;
+}
+.mapa.is-pin .mapa__pin-luz { opacity: 1; }
+/* rayo de luz que marca el sitio justo antes de que caiga el pin */
+.mapa__pin-rayo {
+  position: absolute; left: -1.5px; bottom: 0; width: 3px; height: 240px; border-radius: 2px; opacity: 0; transform-origin: 50% 0; transform: scaleY(0);
+  background: linear-gradient(to top, rgba(255, 250, 235, 1), rgba(255, 226, 160, .55) 45%, rgba(255, 210, 140, 0));
+  box-shadow: 0 0 9px 2px rgba(255, 214, 140, .45);
+}
+.mapa.is-rayo .mapa__pin-rayo { animation: mapaRayo 1.25s cubic-bezier(.3, .6, .3, 1) both; }
+@keyframes mapaRayo {
+  0% { transform: scaleY(0); opacity: 0; }
+  12% { opacity: 1; }
+  34% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1); opacity: 0; }
+}
+/* chispas doradas al tocar el suelo */
+.mapa__pin-chispas i {
+  position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; opacity: 0;
+  background: #fff6dc; box-shadow: 0 0 6px 1px rgba(255, 214, 140, .8);
+}
+.mapa.is-pin .mapa__pin-chispas i { animation: mapaChispa .95s cubic-bezier(.15, .7, .3, 1) .48s both; }
+.mapa__pin-chispas i:nth-child(1) { --dx: 34px; --dy: -14px; }
+.mapa__pin-chispas i:nth-child(2) { --dx: -36px; --dy: -10px; }
+.mapa__pin-chispas i:nth-child(3) { --dx: 22px; --dy: -32px; }
+.mapa__pin-chispas i:nth-child(4) { --dx: -20px; --dy: -34px; }
+.mapa__pin-chispas i:nth-child(5) { --dx: 44px; --dy: 6px; width: 3px; height: 3px; }
+.mapa__pin-chispas i:nth-child(6) { --dx: -46px; --dy: 8px; width: 3px; height: 3px; }
+.mapa__pin-chispas i:nth-child(7) { --dx: 8px; --dy: -44px; width: 3px; height: 3px; }
+.mapa__pin-chispas i:nth-child(8) { --dx: -6px; --dy: 18px; width: 3px; height: 3px; }
+@keyframes mapaChispa {
+  0% { transform: translate(0, 0) scale(1.4); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(.3); opacity: 0; }
+}
+.mapa__pin-cuerpo {
+  position: absolute; left: -19px; top: -50px; width: 38px; height: 50px; transform-origin: 50% 100%;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .55));
+}
+.mapa__pin-cuerpo svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mapa__pin-sombra {
+  position: absolute; left: -16px; top: -6px; width: 32px; height: 12px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0)); transform: scale(.2); opacity: 0;
+}
+.mapa__pin-halo {
+  position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 232, 170, .55), rgba(246, 196, 110, .22) 45%, rgba(214, 160, 80, 0) 100%);
+  opacity: 0; transform: scale(.4);
+}
+.mapa__pin-ondas i {
+  position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
+  border: 1.6px solid rgba(255, 230, 175, .95); box-shadow: 0 0 10px rgba(255, 210, 130, .35), inset 0 0 8px rgba(255, 210, 130, .25);
+  opacity: 0; transform: scale(.2);
+}
+.mapa__pin-golpe {
+  position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 250, 235, .95), rgba(255, 222, 150, .5) 40%, rgba(255, 200, 120, 0) 100%);
+}
+.mapa.is-pin .mapa__pin-cuerpo { animation: mapaCae .95s cubic-bezier(.3, 0, .3, 1) both; }
+.mapa.is-pin .mapa__pin-sombra { animation: mapaSombra .95s cubic-bezier(.3, 0, .3, 1) both; }
+.mapa.is-pin .mapa__pin-golpe { animation: mapaGolpe .9s ease-out .5s both; }
+.mapa.is-idle .mapa__pin-cuerpo { animation: mapaLatePin 1.7s ease-in-out infinite; }
+.mapa.is-idle .mapa__pin-sombra { opacity: 1; transform: none; }
+.mapa.is-idle .mapa__pin-halo { opacity: .6; }
+.mapa.is-idle .mapa__pin-halo { animation: mapaLate 1.7s ease-in-out infinite; }
+.mapa.is-idle .mapa__pin-ondas i { animation: mapaOnda 2.55s cubic-bezier(.2, .7, .3, 1) infinite; }
+.mapa.is-idle .mapa__pin-ondas i:nth-child(2) { animation-delay: .85s; }
+.mapa.is-idle .mapa__pin-ondas i:nth-child(3) { animation-delay: 1.7s; }
+@keyframes mapaCae {
+  0% { transform: translateY(-120px) scale(.72); opacity: 0; }
+  12% { opacity: 1; }
+  52% { transform: translateY(0) scale(1.08, .86); }
+  66% { transform: translateY(-14px) scale(.97, 1.04); }
+  80% { transform: translateY(0) scale(1.03, .96); }
+  90% { transform: translateY(-3px) scale(1); }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes mapaSombra { 0% { transform: scale(.2); opacity: 0; } 52% { transform: scale(1.15); opacity: 1; } 66% { transform: scale(.85); } 100% { transform: none; opacity: 1; } }
+@keyframes mapaGolpe { 0% { transform: scale(.2); opacity: 0; } 18% { opacity: 1; } 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes mapaOnda { 0% { transform: scale(.25); opacity: 0; } 12% { opacity: .95; } 100% { transform: scale(2.7); opacity: 0; } }
+@keyframes mapaLate {
+  0%, 100% { transform: scale(.95); opacity: .55; }
+  12% { transform: scale(1.22); opacity: 1; }
+  24% { transform: scale(1.02); opacity: .7; }
+  36% { transform: scale(1.16); opacity: .92; }
+  62% { transform: scale(.98); opacity: .58; }
+}
+@keyframes mapaLatePin {
+  0%, 100% { transform: none; }
+  12% { transform: scale(1.06); }
+  24% { transform: scale(1.01); }
+  36% { transform: scale(1.045); }
+  62% { transform: none; }
+}
+
+/* ---------- velo, adornos del marco, brújula, escala, coordenadas ---------- */
+.mapa__velo {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(130% 100% at 50% 50%, rgba(10, 8, 9, 0) 55%, rgba(10, 8, 9, .55) 100%),
+    linear-gradient(180deg, rgba(10, 8, 9, .35), rgba(10, 8, 9, 0) 16%, rgba(10, 8, 9, 0) 84%, rgba(10, 8, 9, .45));
+}
+.mapa__brillo {
+  position: absolute; inset: -30%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: linear-gradient(115deg, rgba(255, 236, 200, 0) 38%, rgba(255, 236, 200, .1) 48%, rgba(255, 236, 200, 0) 58%);
+  transition: opacity .6s;
+}
+.mapa.is-tilt .mapa__brillo { opacity: 1; }
+.mapa__marco { position: absolute; inset: 0; pointer-events: none; }
+.mapa__marco::before, .mapa__marco::after { content: ''; position: absolute; pointer-events: none; }
+.mapa__marco::before { inset: 6px; border: 1px solid rgba(214, 186, 132, .34); border-radius: 10px; }
+.mapa__marco::after { inset: 10px; border: 1px solid rgba(214, 186, 132, .12); border-radius: 7px; }
+.mapa__esq { position: absolute; width: 26px; height: 26px; overflow: visible; }
+.mapa__esq--tl { left: 3px; top: 3px; }
+.mapa__esq--tr { right: 3px; top: 3px; transform: scaleX(-1); }
+.mapa__esq--br { right: 3px; bottom: 3px; transform: scale(-1, -1); }
+.mapa__esq--bl { left: 3px; bottom: 3px; transform: scaleY(-1); }
+.mapa__marco .mo { fill: none; stroke: #e6cc94; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+.mapa__marco .md { fill: #f6e3b4; opacity: 0; transition: opacity .6s ease .9s; }
+.mapa.is-run .mapa__marco .mo { transition: stroke-dashoffset 1.6s cubic-bezier(.65, 0, .35, 1) .15s; stroke-dashoffset: 0; }
+.mapa.is-run .mapa__marco .md { opacity: 1; }
+
+.mapa__chip {
+  position: absolute; font-family: var(--m-sans); font-weight: 600; font-size: 8.5px; letter-spacing: .2em; text-transform: uppercase;
+  color: rgba(246, 227, 180, .85); text-shadow: 0 0 4px rgba(8, 6, 6, .95), 0 1px 2px rgba(0, 0, 0, .9); pointer-events: none;
+  opacity: 0; transition: opacity .8s ease;
+}
+.mapa.is-run .mapa__chip { opacity: 1; }
+.mapa.is-info.is-tapa-coords .mapa__coords, .mapa.is-info.is-tapa-brujula .mapa__brujula { opacity: 0; transition-delay: 0s; }
+.mapa__coords { left: 34px; top: 15px; transition-delay: .6s; }
+.mapa__brujula { right: 30px; top: 13px; width: 28px; height: 30px; transition-delay: .4s; }
+.mapa__brujula svg { width: 100%; height: 100%; overflow: visible; }
+.mapa__escala { left: 34px; bottom: 15px; display: flex; align-items: center; gap: 7px; transition-delay: 1s; }
+.mapa__escala i {
+  display: block; height: 5px; width: var(--w, 60px); border: 1px solid rgba(246, 227, 180, .85); border-top: 0;
+  transition: width .9s var(--m-ease);
+}
+.mapa__pista {
+  right: 26px; top: 48px; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+  background: rgba(14, 10, 8, .72); border: 1px solid rgba(214, 186, 132, .45); opacity: 0 !important; transform: translateY(-4px);
+  transition: opacity .35s ease, transform .45s var(--m-ease) !important; text-shadow: none;
+}
+.mapa__pista svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: hover) and (pointer: fine) {
+  .mapa.is-on .mapa__map:hover .mapa__pista { opacity: 1 !important; transform: none; }
+  .mapa.is-on .mapa__map:hover .mapa__rel { filter: brightness(1.08); }
+}
+.mapa.is-on .mapa__map:focus-visible .mapa__pista { opacity: 1 !important; transform: none; }
+/* UNIR: con la tarjeta del lugar encima, la pista se oculta (el botón «Abrir en Google Maps» sigue debajo del mapa) */
+.mapa.is-info.is-tapa-pista .mapa__pista { visibility: hidden; }
+
+/* atribución: en móvil, una línea bajo el mapa; en pantallas anchas, dentro del mapa abajo a la derecha */
+.mapa.is-on .mapa__atrib { margin: 7px 6px 0; text-align: center; font-size: 8.5px; }
+@media (min-width: 600px) {
+.mapa.is-on .mapa__atrib {
+  position: absolute; right: 26px; bottom: 11px; margin: 0; max-width: 62%; padding: 3px 8px; border-radius: 8px;
+  font-size: 8.5px; color: rgba(242, 229, 203, .78); background: rgba(10, 8, 9, .58); z-index: 3; text-align: right;
+}
+}
+
+/* ---------- tarjeta de lugar/fecha/hora junto al pin ---------- */
+.mapa.is-on .mapa__info {
+  position: absolute; left: 0; top: 0; z-index: 4; padding: 10px 15px 11px; min-width: 0; max-width: calc(100% - 24px);
+  border-radius: 13px; text-align: center; pointer-events: none; white-space: nowrap;
+  background: linear-gradient(180deg, rgba(30, 22, 16, .92), rgba(16, 11, 9, .94));
+  border: 1px solid rgba(214, 186, 132, .62);
+  box-shadow: 0 18px 34px -16px rgba(0, 0, 0, .95), 0 0 0 1px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 240, 210, .12);
+  opacity: 0; visibility: hidden; translate: 0 9px;
+  transition: opacity .6s ease, visibility 0s .6s, translate .8s var(--m-ease);
+}
+.mapa.is-on .mapa__info::after {         /* piquito hacia el pin */
+  content: ''; position: absolute; left: calc(50% + var(--ax, 0px)); width: 12px; height: 12px; margin-left: -6px;
+  background: #110c09; border: 1px solid rgba(214, 186, 132, .62); border-top: 0; border-left: 0; transform: rotate(45deg);
+  bottom: -7px;
+}
+.mapa.is-on .mapa__info.is-abajo::after { bottom: auto; top: -7px; transform: rotate(225deg); background: #1e1610; }
+.mapa.is-on .mapa__info.is-der::after, .mapa.is-on .mapa__info.is-izq::after {
+  left: auto; bottom: auto; top: calc(50% + var(--ay, 0px)); margin: -6px 0 0; background: #17100c;
+}
+.mapa.is-on .mapa__info.is-der::after { left: -7px; transform: rotate(135deg); }
+.mapa.is-on .mapa__info.is-izq::after { right: -7px; transform: rotate(-45deg); }
+.mapa.is-on.is-info .mapa__info { opacity: 1; visibility: visible; translate: 0 0; transition: opacity .6s ease, visibility 0s, translate .8s var(--m-ease); }
+.mapa.is-on .mapa__lugar { font-size: 19px; }
+.mapa.is-on .mapa__cuando { margin-top: 4px; font-size: 9px; letter-spacing: .17em; text-indent: .17em; }
+@media (min-width: 560px) {
+  .mapa.is-on .mapa__lugar { font-size: 21px; }
+  .mapa.is-on .mapa__cuando { font-size: 9.5px; letter-spacing: .2em; }
+}
+/* tarjeta compacta (mapa bajo o estrecho) */
+.mapa.is-on .mapa__info.is-compacta { padding: 7px 12px 8px; border-radius: 11px; }
+.mapa.is-on .mapa__info.is-compacta .mapa__lugar { font-size: 17px; }
+.mapa.is-on .mapa__info.is-compacta .mapa__cuando { margin-top: 2px; font-size: 8.5px; letter-spacing: .14em; text-indent: .14em; }
+/* tarjeta estrecha: la fecha y la hora en dos renglones */
+.mapa.is-on .mapa__info.is-2l .mapa__cuando .sep { display: none; }
+.mapa.is-on .mapa__info.is-2l .mapa__cuando .hora { display: block; }
+
+/* ---------- estados ---------- */
+.mapa.is-error .mapa__stage { display: none; }
+.mapa.is-error .mapa__map {
+  aspect-ratio: auto; min-height: 48px; display: flex; padding: 12px 16px; border: 1px solid rgba(214, 186, 132, .3); background: rgba(214, 186, 132, .08);
+  font-family: var(--m-sans); font-weight: 600; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--m-gold-hi);
+}
+.mapa.is-error .mapa__nojs { position: static; width: auto; height: auto; clip-path: none; }
+.mapa.is-error .mapa__info { position: static; opacity: 1; visibility: visible; transform: none; background: none; border: 0; box-shadow: none; }
+.mapa.is-error .mapa__info::after { content: none; }
+.mapa.is-error .mapa__atrib { display: none; }
+/* fuera de pantalla: animaciones en pausa (batería) */
+.mapa:not(.is-visible) *, .mapa:not(.is-visible) *::before, .mapa:not(.is-visible) *::after { animation-play-state: paused !important; }
+
+/* movimiento reducido: estado final, sin latidos ni ondas ni inclinación */
+.mapa.is-rm .mapa__pin-rayo, .mapa.is-rm .mapa__pin-chispas i,
+.mapa.is-rm .mapa__pin-cuerpo, .mapa.is-rm .mapa__pin-sombra, .mapa.is-rm .mapa__pin-golpe,
+.mapa.is-rm .mapa__pin-halo, .mapa.is-rm .mapa__pin-ondas i, .mapa.is-rm .mapa__meta b, .mapa.is-rm .r-ant,
+.mapa.is-rm .mapa__btn--oro::after { animation: none !important; }
+.mapa.is-rm .mapa__pin-sombra { opacity: 1; transform: none; }
+.mapa.is-rm .mapa__pin-rayo, .mapa.is-rm .mapa__pin-chispas { display: none; }
+.mapa.is-rm .mapa__pin-halo { opacity: .6; transform: none; }
+.mapa.is-rm .mapa__frame { transform: none !important; }
+.mapa.is-rm .mapa__n, .mapa.is-rm .mapa__info, .mapa.is-rm .mapa__chip, .mapa.is-rm .mapa__marco .mo, .mapa.is-rm .mapa__marco .md,
+.mapa.is-rm .mapa__pin-luz, .mapa.is-rm .mapa__escala i, .mapa.is-rm .mapa__brillo { transition: none !important; }
+
+@media (max-width: 380px) {
+  .mapa__card { padding: 7px; border-radius: 19px; }
+  .mapa__card::before { border-radius: 15px; }
+  .mapa__btn { font-size: 10px; letter-spacing: .1em; gap: 7px; padding: 8px 9px; }
+  .mapa__btn svg { width: 16px; height: 16px; }
+  .mapa.is-on .mapa__lugar { font-size: 17.5px; }
+  .mapa__coords { left: 28px; top: 13px; font-size: 7.5px; letter-spacing: .14em; }
+  .mapa.is-on .mapa__atrib { font-size: 7.6px; letter-spacing: 0; margin-left: 2px; margin-right: 2px; }
+  .mapa__escala { left: 26px; bottom: 13px; }
+}
+
+/* ---------- dentro de #final (bloque 2: cuenta regresiva, fecha, MAPA, "Volver al inicio") ----------
+   El bloque mide una pantalla (diseño fijo de final3d.js): el mapa cede alto para que "Volver al inicio" quede a la vista.
+   Medido con tests/mapa.html?contexto=final (shots/mapa/final.mjs) en 360×740, 390×844, 768×1024, 1366×768, 1440×900, 1920×1080. */
+#final .mapa { margin-top: 18px; --mapa-max-h: max(170px, calc(90svh - 404px)); }
+@media (min-width: 720px) { #final .mapa { --mapa-max-h: max(200px, calc(87svh - 424px)); } }
+/* UNIR · teléfono acostado (844×390, 667×375…): el bloque 2 no cabía en la pantalla fija y el mapa, sus botones y
+   "Volver al inicio" quedaban cortados abajo, sin forma de llegar a ellos. En dos columnas: cuenta regresiva, fecha y
+   "Volver al inicio" a la izquierda; el mapa a la derecha, tan alto como la pantalla permite (y lejos de la muesca). */
+@media (max-height: 520px) and (orientation: landscape) and (min-width: 560px) {
+  #final .finale__info, #final.is-sc .finale__info {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-areas: "cd mapa" "fecha mapa" "volver mapa";
+    align-content: center; align-items: center; justify-items: center; column-gap: clamp(14px, 2.6vw, 30px); row-gap: 12px;
+    min-height: 100vh; min-height: 100svh;
+    /* a la derecha queda libre el botón flotante de música (arriba a la derecha < 720 px; abajo a la derecha desde 720 px) */
+    padding: max(12px, var(--safe-t)) calc(env(safe-area-inset-right, 0px) + 50px) max(12px, var(--safe-b)) env(safe-area-inset-left, 0px);
+  }
+  @media (min-width: 720px) { #final .finale__info, #final.is-sc .finale__info { padding-right: calc(env(safe-area-inset-right, 0px) + 58px); } }
+  #final .finale__info > .countdown { grid-area: cd; margin: 0; gap: 6px; align-self: end; }
+  #final .finale__info .flip { --fh: clamp(42px, 13svh, 58px); border-radius: 12px; }
+  #final .finale__info > .finale__date { grid-area: fecha; flex-direction: column; gap: 6px; border-radius: 18px; padding: 9px 16px; }
+  #final .finale__info > .finale__date i { display: none; }
+  #final .finale__info > .finale__back { grid-area: volver; margin: 0; align-self: start; }
+  #final .finale__info > .mapa { grid-area: mapa; margin: 0; width: 100%; --mapa-max-h: calc(100svh - 112px); }
+}

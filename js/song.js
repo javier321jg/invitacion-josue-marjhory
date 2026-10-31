@@ -644,6 +644,8 @@ export async function createSong(opts = {}) {
       chime() { if (callMusic('chime')) duckTo(0.22, 0.6); },
       whoosh() { callMusic('whoosh'); },
       sparkle() { callMusic('sparkle'); },
+      // UNIR · raspado de la pluma (js/pluma.js lo llama cada cuadro; music.js calla solo si no se refresca)
+      quill(x) { callMusic('quill', x); },
     },
 
     dispose() {

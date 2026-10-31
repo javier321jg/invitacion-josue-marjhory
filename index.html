@@ -37,6 +37,8 @@
 <script type="module" src="js/historia3d.js"></script>
 <link rel="stylesheet" href="css/final.css">
 <script type="module" src="js/final3d.js"></script>
+<link rel="stylesheet" href="css/mapa.css">
+<script type="module" src="js/mapa.js"></script>
 </head>
 <body>
 
@@ -170,6 +172,26 @@
       <div class="finale__info">
         <div class="countdown" id="countdown" data-kinetic-avoid role="timer" aria-live="off" aria-label="Cuenta regresiva para la cena de compromiso"></div>
         <p class="finale__date" data-kinetic="pulse" data-kinetic-avoid><span data-c="EVENT.dateShort">24 · 12 · 2026</span><i aria-hidden="true">◆</i><span data-c="EVENT.place">Ahuayro — Pailahuantuna</span></p>
+        <!-- MAPA (decisión n.º 7): mini mapa dorado de la ubicación · js/mapa.js + css/mapa.css + assets/mapa/ -->
+        <div class="mapa" data-mapa data-kinetic-avoid role="group" aria-label="Mapa de la ubicación">
+          <div class="mapa__card">
+            <div class="mapa__frame">
+              <a class="mapa__map" href="https://maps.app.goo.gl/YyHd2MTtzHGGr5dj7" target="_blank" rel="noopener" data-mapa-url="map"
+                 aria-label="Abrir en Google Maps la ubicación: Ahuayro — Pailahuantuna"><span class="mapa__nojs">Ver la ubicación en Google Maps</span></a>
+              <div class="mapa__info">
+                <p class="mapa__lugar" data-c="EVENT.place">Ahuayro — Pailahuantuna</p>
+                <p class="mapa__cuando"><time datetime="2026-12-24T17:00:00-05:00">jueves 24 de diciembre · 5:00 p. m.</time></p>
+              </div>
+              <p class="mapa__atrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · Relieve: Mapzen / AWS Terrain Tiles</p>
+            </div>
+            <div class="mapa__acciones">
+              <a class="mapa__btn mapa__btn--oro" href="https://www.google.com/maps/dir/?api=1&amp;destination=-13.479828,-73.81499" target="_blank" rel="noopener" data-mapa-url="ruta">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11.2 20 4l-7.2 16.5-2.1-7.2z"/></svg><span>Cómo llegar</span></a>
+              <a class="mapa__btn" href="https://maps.app.goo.gl/YyHd2MTtzHGGr5dj7" target="_blank" rel="noopener" data-mapa-url="map">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Abrir en Google Maps</span></a>
+            </div>
+          </div>
+        </div>
         <button id="volver" class="btn btn--ghost finale__back" type="button" data-kinetic-avoid data-c="FINALE.back">Volver al inicio ↑</button>
       </div>
     </div>

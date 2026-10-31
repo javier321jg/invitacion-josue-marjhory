@@ -9,8 +9,13 @@
 //   export async function mountScroll(container, { music?, reducedMotion?, onProgress?(p), onOpened?() })
 //     → Promise<{ open(): Promise<void>, readonly isOpen, reset(), setActive(on), dispose(), fps }>
 // Extras (no contractuales, para depurar / integrar):
-//   opening, opened, phase, quality (nivel 0..4), setQuality(n | null = automático), setSafeArea({ top, bottom } px),
-//   seek(t) (simulación determinista de la apertura hasta t s y congela), live(), scene, camera, renderer, parchment, ribbon.
+//   opening, opened, phase, quality (nivel 0..4), setQuality(n | null = automático),
+//   setSafeArea({ top, bottom, left, right } px: lo que tapa la interfaz en la lectura y el encuadre final — ESCENA),
+//   seek(t, scroll?) (simulación determinista de la apertura hasta t s y congela; scroll = progreso fijo 0..1), live(),
+//   scene, camera, renderer, parchment, ribbon.
+//   ESCENA: setScrollProgress(s), sequence { phase, opening, opened, ctaShown, done, wt, wNat, rate, back, scroll, finalMode },
+//   inkwell { position (mundo, mesa y = 0), rotationY }, attachQuill(quill) → Promise<bool>, detachQuill(), quill,
+//   legibility { xHeightPx, finalMode, dpr }.
 //   opts.quality (nivel fijo), opts.safeArea ({ top, bottom } px que tapa la interfaz del sitio), opts.dprMax.
 //
 // Estilo antiguo (decisión n.º 4 del SPEC): vela + relleno + contraluz, entorno tenue cálido, motas de polvo en el haz,
@@ -697,6 +702,15 @@ export async function mountScroll(container, opts = {}) {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(1.6, 1.2, 0.9), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
   glow.scale.set(0.2, 0.2, 1); glow.position.set(0, wickY + 0.02, 0); glow.renderOrder = 6; candle.add(glow);
   scene.add(candle);
+  // ESCENA · segunda vela, a la derecha, junto al lugar del tintero (equilibra el plano final y el tintero queda "junto a la
+  // vela"). Comparte geometrías y programas con la primera (sin compilaciones nuevas) y titila con otra fase. Sin luz propia.
+  const flameMat2 = flameMat.clone(); flameMat2.uniforms = { uTime: { value: 0 }, uFlick: { value: 1 } };
+  const candle2 = candle.clone(true); candle2.name = 'vela_2';
+  const flame2 = candle2.children[candle.children.indexOf(flame)], glow2 = candle2.children[candle.children.indexOf(glow)];
+  flame2.material = flameMat2; glow2.material = glow.material.clone();
+  candle2.scale.setScalar(0.86);
+  scene.add(candle2);
+  const flamePos2 = new THREE.Vector3();
   const flamePos = new THREE.Vector3();
   // bokeh de velas lejanas (fondo desenfocado; se ven sobre todo en el plano final)
   const bokehTex = radialTex([[0, 'rgba(255,255,255,.55)'], [0.7, 'rgba(255,255,255,.5)'], [0.86, 'rgba(255,255,255,.8)'], [1, 'rgba(255,255,255,0)']], 64);
@@ -966,6 +980,7 @@ export async function mountScroll(container, opts = {}) {
   // en pantallas anchas; en vertical se arrima a la hoja para seguir en cuadro. Mundo: y = 0 (mesa).
   const inkSpot = { pos: new THREE.Vector3(0.205, 0, 0.085), rotY: 0.9 }; // (rotY: la pluma en reposo se recuesta hacia atrás-derecha, lejos de los CTA)
   let quill = null;         // pluma de js/pluma.js (attachQuill)
+  let quillSheen = true;    // UNIR: familia de materiales de la pluma fijada al engancharla (L0–L2 con brillo sedoso, L3–L4 sin él)
   const tmpObj = new THREE.Object3D();
   function localPointsTo(pos, quat, list) { tmpObj.position.copy(pos); tmpObj.quaternion.copy(quat); tmpObj.updateMatrixWorld(true); return list.map((p) => new THREE.Vector3(...p).applyMatrix4(tmpObj.matrixWorld)); }
   function boxPts(x0, x1, y0, y1, z0, z1) { const o = []; for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) o.push([x, y, z]); return o; }
@@ -1026,6 +1041,8 @@ export async function mountScroll(container, opts = {}) {
     // vela del fondo (responsive: en vertical se acerca al centro para seguir en cuadro)
     const ka = clamp((aspect - 0.6) / 0.9);
     candle.position.set(lerp(-0.13, -0.255, ka), 0, lerp(-0.24, -0.19, ka));
+    candle2.position.set(lerp(0.2, 0.3, ka), 0, lerp(-0.2, -0.14, ka)); candle2.updateMatrixWorld(true);
+    flamePos2.set(0, wickY + 0.018, 0).applyMatrix4(candle2.matrixWorld);
     candle.updateMatrixWorld(true);
     flamePos.set(0, wickY + 0.018, 0).applyMatrix4(candle.matrixWorld);
     candleLight.position.copy(flamePos);
@@ -1087,6 +1104,9 @@ export async function mountScroll(container, opts = {}) {
     vignetteEl.style.display = Q.post > 0 && post ? 'none' : 'block';
     dust.geometry.setDrawRange(0, Math.round(DUST * Q.parts));
     applySize();
+    // UNIR: la pluma sigue la calidad (franjas de sombra, ondas, sombra en la mesa) sin cambiar de familia de materiales:
+    // pasar de L2 a L3 cambiaría sus materiales con brillo sedoso por los estándar y compilaría 2 programas en pleno cuadro
+    try { quill?.setQuality?.(quillSheen ? Math.min(qLevel, 2) : Math.max(qLevel, 3)); } catch { /* */ }
     fpsWin.t = 0; fpsWin.n = 0; fpsWin.warm = 2.0; fpsWin.good = 0; fpsWin.max = 0;
   }
   const fpsWin = { t: 0, n: 0, warm: 2.5, lastChange: 0, max: 0, good: 0 };
@@ -1646,9 +1666,11 @@ export async function mountScroll(container, opts = {}) {
     hv = Math.max(hv, (XH * H) / READ_XH_MAX);
     const hvF = 2 * fovT * poses.final.dist;
     hv = lerp(hv, Math.max(hv, hvF), clamp((rate - 1.3) / 4) * 0.75);
-    const f = P.getFocus(pace.wt);
     const y0 = TA.center[1] - TA.height / 2 - 0.012, y1 = TA.center[1] + TA.height / 2 + 0.02;
-    let yc = (f.y0 + f.y1) / 2 - 0.08 * hv;
+    // (sin getFocus — parchment.js antiguo — recorre la columna de arriba abajo con el progreso)
+    const f = typeof P.getFocus === 'function' ? P.getFocus(pace.wt) : null;
+    const lineY = f ? (f.y0 + f.y1) / 2 : lerp(y1 - 0.03, y0 + 0.03, pace.wt);
+    let yc = lineY - 0.08 * hv;
     yc = y1 - y0 <= hv ? (y0 + y1) / 2 : clamp(yc, y0 + hv / 2, y1 - hv / 2);
     // en horizontal: la hoja tan centrada como permita la columna completa (con margen); en vertical, la columna centrada
     const halfW = (hv * aspect) / 2, cL = TA.center[0] - TA.width / 2 - 0.012, cR = TA.center[0] + TA.width / 2 + 0.012;
@@ -1738,6 +1760,9 @@ export async function mountScroll(container, opts = {}) {
     dustMat.uniforms.uAmt.value = (reduced ? 0.5 : 1) * (0.85 + 0.35 * songE);
     flameMat.uniforms.uTime.value = time; flameMat.uniforms.uFlick.value = fl;
     glow.material.opacity = 0.75 + (fl - 1) * 2;
+    const fl2 = 1 + (Math.sin(time * 12.7 + 2.3) * 0.5 + Math.sin(time * 19.1 + 0.4) * 0.3 + Math.sin(time * 5.3 + 1.9) * 0.6) * 0.035;
+    flameMat2.uniforms.uTime.value = time + 17.3; flameMat2.uniforms.uFlick.value = fl2; glow2.material.opacity = 0.5 + (fl2 - 1) * 1.6;
+    flame2.rotation.y = Math.atan2(camera.position.x - flamePos2.x, camera.position.z - flamePos2.z);
     waxMat.emissiveIntensity = 1.3 * fl;
     flame.rotation.y = Math.atan2(camera.position.x - flamePos.x, camera.position.z - flamePos.z);
     dustMat.uniforms.uTime.value = time; dustMat.uniforms.uFlick.value = fl;
@@ -1852,7 +1877,11 @@ export async function mountScroll(container, opts = {}) {
 
   function renderFrame() {
     // PERF (L3/L4): las sombras solo se redibujan si algo que las proyecta se mueve (apertura, cinta cayendo)
-    if (Q.lazySh && (opening || (rb.state !== 'tied' && rb.state !== 'settled'))) renderer.shadowMap.needsUpdate = true;
+    // ESCENA: durante la lectura (larga y casi quieta) basta 1 de cada 4 cuadros
+    if (Q.lazySh) {
+      const calm = opening && seq && seq.writeT >= 0 && seq.t - seq.writeT > 1.5;
+      if ((opening && (!calm || (++shN & 3) === 0)) || (rb.state !== 'tied' && rb.state !== 'settled')) renderer.shadowMap.needsUpdate = true;
+    }
     if (post && Q.post > 0) {
       const U = post.uniforms;
       U.uSepia.value = grade.sepia; U.uGrain.value = grade.grain; U.uVig.value = grade.vig; U.uExpo.value = grade.expo;
@@ -1873,7 +1902,7 @@ export async function mountScroll(container, opts = {}) {
       renderer.render(scene, camera);
     }
   }
-  let cssSepia = 0;
+  let cssSepia = 0, shN = 0;
 
   // ───────── bucle (solo cuando es visible)
   let raf = 0, lastT = 0;
@@ -2150,6 +2179,7 @@ export async function mountScroll(container, opts = {}) {
     if (quill) detachQuill();
     try { if (reduced) q.setReducedMotion?.(true); } catch { /* */ }
     try { q.setQuality?.(clamp(qLevel, 0, 4)); } catch { /* */ }
+    quillSheen = qLevel <= 2;
     if (q.inkwell) { q.inkwell.position.copy(inkSpot.pos); q.inkwell.rotation.y = inkSpot.rotY; }
     const roots = [q.group, q.inkwell, q.debug?.paperStrip?.mesh].filter(Boolean);
     try {
@@ -2213,6 +2243,7 @@ export async function mountScroll(container, opts = {}) {
       }
     });
       [tAlb, tNrm, tRgh, tPet1, tPet2, glowTex, waxGlow].forEach((t) => t?.dispose());
+    flameMat2.dispose(); glow2.material.dispose();
     post?.dispose(); envRT.dispose(); pmrem.dispose(); shadowRTc?.dispose();
     renderer.dispose();
     canvas.remove(); vignetteEl.remove();
