@@ -859,6 +859,8 @@ uniform vec3 pPaperCream;  // CREMA: tono crema (lineal) hacia el que se lleva e
 uniform float pInkBold;    // CREMA: cuerpo de la tinta (>1 = trazo más lleno y oscuro desde lejos)
 uniform float pGoldMetal;  // CREMA: metalicidad del pan de oro de los nombres
 uniform float pGoldTone;   // CREMA: cuánto refleja el oro (1 = espejo; < 1 = oro viejo más hondo, se lee sobre crema)
+uniform float pPaperGlow;  // AJUSTES (pedido 9.4): luz propia del papel en la columna de texto (papel más claro desde lejos; la tinta no)
+uniform float pLeafGain;   // AJUSTES: albedo del pan de oro (< 1 = oro viejo más oscuro que el papel: los nombres se leen desde lejos)
 varying vec4 vParch;
 float parchAO() {
   float a = vParch.x, turns = vParch.y, e = vParch.z;
@@ -915,6 +917,7 @@ vec3 parchGoldLeaf(vec2 tuv) {
 // trazo (canal B), tinta más cargada tras cada remojo (pDips). Nombres: mordiente y luego se doran con chispas. Sin grano ni sepia.
 const GLSL_MAP = /* glsl */`
 float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(0.0); vec3 pEmit = vec3(0.0);
+float pLm = 0.0, pGoldA = 0.0;
 #ifdef USE_MAP
   if (gl_FrontFacing) {
     diffuseColor *= texture(map, vMapUv, pLodBias);
@@ -927,6 +930,7 @@ float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(
       float pl2 = 1.0 - pow(1.0 - min(pl, 0.995), pk);
       vec3 ch = diffuseColor.rgb / pl, cc = pPaperCream / dot(pPaperCream, vec3(0.2126, 0.7152, 0.0722));
       diffuseColor.rgb = mix(ch, cc, mix(pPaperLift.z, pPaperLift.w, lm)) * pl2;
+      pLm = lm;
     }
     pThread = texture(pThreadMap, vMapUv).r;
     vec2 tuv = (vMapUv - pTextRect.xy) / (pTextRect.zw - pTextRect.xy);
@@ -976,7 +980,8 @@ float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(
       vec3 base = diffuseColor.rgb;
       vec3 cInk = mix(base, inkC, aS);
       vec3 mord = mix(vec3(0.16, 0.05, 0.022), vec3(0.085, 0.024, 0.012), wet);
-      vec3 leaf = gk > 0.001 ? parchGoldLeaf(tuv) : vec3(0.8, 0.6, 0.3);
+      vec3 leaf = (gk > 0.001 ? parchGoldLeaf(tuv) : vec3(0.8, 0.6, 0.3)) * pLeafGain;
+      pGoldA = a * gk;
       vec3 cGold = mix(base * (1.0 - 0.95 * rim * vec3(0.85, 0.9, 0.95)), mix(mord, leaf, gild), a);
       diffuseColor.rgb = mix(cInk, cGold, gk);
       pInk = aS * (1.0 - gk);
@@ -994,6 +999,8 @@ float pGold = 0.0, pThread = 0.0, pInk = 0.0, pWet = 0.0; vec2 parchBump = vec2(
         parchBump = vec2(cL - cR, cD - cU) * pGoldBump * gild;
       }
     }
+    // AJUSTES (9.4): el papel de la columna recibe luz propia (más claro y crema desde lejos); la tinta, casi negra, no cambia
+    pEmit += diffuseColor.rgb * pPaperGlow * pLm * (1.0 - pGoldA);
   } else {
     // reverso: v comprimido hacia el centro para que el borde tostado de los extremos no domine el rollo abierto
     diffuseColor *= texture(pBackMap, vec2(vMapUv.x, 0.5 + (vMapUv.y - 0.5) * 0.94)) * vec4(pBackTint, 1.0);
@@ -1169,7 +1176,11 @@ export async function createParchment(opts = {}) {
     pLiftRect: { value: new THREE.Vector4(TEXT_UV.u0 + 0.06, TEXT_UV.v0 - 0.02, TEXT_UV.u1, TEXT_UV.v1 + 0.02) },
     pPaperCream: { value: new THREE.Vector3(0.88, 0.78, 0.6) },
     pInkBold: { value: 1.7 },
-    pGoldMetal: { value: 0.6 }, pGoldTone: { value: 0.6 },
+    // AJUSTES (pedido del usuario: "las letras o el fondo más crema; desde lejos no se ve"): papel de la columna con luz propia
+    // (L 0.71 → 0.80, crema claro) y nombres en oro viejo MÁS OSCURO que el papel (relleno 1.2:1 más claro → ≈ 3:1 más oscuro);
+    // el brillo del oro queda en el reflejo estrecho y los destellos. La tinta del cuerpo la engruesa scroll3d según los px reales.
+    pGoldMetal: { value: 0.3 }, pGoldTone: { value: 0.25 },
+    pPaperGlow: { value: 0.4 }, pLeafGain: { value: 0.62 },
   };
   const bindUniforms = (shader) => { for (const k in U) shader.uniforms[k] = U[k]; };
   const vertDeform = (vs, withNormal) => {

@@ -521,3 +521,104 @@
 }
 /* FIX: el enlace de atribución «OpenStreetMap» medía 71×10 px: área táctil de ~44 px sin cambiar su aspecto */
 .mapa__atrib a { display: inline-block; padding: 14px 6px; margin: -14px -6px; }
+
+/* ==========================================================================
+   AJUSTES · MAPA CREMA (decisión n.º 9.1: «el marrón no me gusta… nada de fondos marrones»). El mapa era un panel casi negro
+   (≈40 % de la pantalla en 390×844). Ahora es un grabado sobre papel: relieve crema (assets/mapa/*-crema.webp, de
+   tools/mapa/crema.py), curvas y caminos en tinta chocolate, ríos en azul pizarra apagado, ruta y pin en oro, nombres en
+   tinta con halo de papel y la tarjeta del lugar en crema con filete de oro.
+   ========================================================================== */
+.mapa.is-on .mapa__map { background: #efe5d1; color: #4a3426; }
+.mapa__velo {
+  background:
+    radial-gradient(130% 100% at 50% 50%, rgba(138, 100, 48, 0) 58%, rgba(138, 100, 48, .2) 100%),
+    linear-gradient(180deg, rgba(239, 229, 209, .35), rgba(239, 229, 209, 0) 14%, rgba(239, 229, 209, 0) 86%, rgba(239, 229, 209, .4));
+}
+/* vectores del valle */
+.mapa__svg .v-agua { fill: rgba(84, 118, 135, .14); stroke: rgba(84, 118, 135, .5); }
+.mapa__svg .v-quebrada { stroke: rgba(84, 118, 135, .5); }
+.mapa__svg .v-vecinal { stroke: rgba(110, 76, 31, .5); }
+.mapa__svg .v-terciaria { stroke: rgba(94, 64, 25, .72); }
+.mapa__svg .v-secundaria { stroke: #7d5a2b; }
+.mapa__svg .v-primaria { stroke: #6e4c1f; }
+.mapa__svg .v-rio-b { stroke: rgba(84, 118, 135, .08); }
+.mapa__svg .v-rio { stroke: #5f8193; }
+.mapa__svg .v-rio-h { stroke: rgba(84, 118, 135, .14); }
+.mapa__svg .v-troncal { stroke: #4a3426; }
+.mapa__svg .v-troncal-h { stroke: rgba(154, 112, 52, .26); }
+/* vectores del pueblo */
+.mapa__svg .p-residencial { fill: rgba(110, 76, 31, .07); stroke: rgba(110, 76, 31, .3); }
+.mapa__svg .p-escuela { fill: rgba(110, 76, 31, .12); stroke: rgba(110, 76, 31, .45); }
+.mapa__svg .p-estadio { fill: rgba(110, 76, 31, .14); stroke: rgba(94, 64, 25, .7); }
+.mapa__svg .p-edificio { fill: rgba(125, 90, 43, .55); stroke: rgba(74, 52, 38, .55); }
+.mapa__svg .p-sendero { stroke: rgba(110, 76, 31, .55); }
+.mapa__svg .p-trocha { stroke: rgba(94, 64, 25, .72); }
+.mapa__svg .p-calle { stroke: #7d5a2b; }
+.mapa__svg .p-via { stroke: #5e4019; }
+.mapa__svg .p-rio-b { stroke: rgba(84, 118, 135, .07); }
+.mapa__svg .p-rio-b2 { stroke: rgba(84, 118, 135, .1); }
+.mapa__svg .p-rio { stroke: #5f8193; }
+.mapa__svg .p-rio-h { stroke: rgba(84, 118, 135, .12); }
+.mapa__svg .p-troncal { stroke: #4a3426; }
+.mapa__svg .p-troncal-h { stroke: rgba(154, 112, 52, .26); }
+/* ruta de acceso en oro y chispas de la punta del trazo */
+.mapa__svg .r-h2 { stroke: rgba(184, 134, 47, .14); }
+.mapa__svg .r-h { stroke: rgba(184, 134, 47, .32); }
+.mapa__svg .r-l { stroke: #a4732c; }
+.mapa__svg .r-ant { stroke: #fff6dc; }
+.mapa__svg .chispa { stroke: #b8862f; }
+.mapa__svg .chispa-h { stroke: rgba(214, 160, 80, .4); }
+/* nombres: tinta con halo de papel */
+.mapa__n > span { text-shadow: 0 0 3px rgba(248, 241, 227, .98), 0 0 8px rgba(248, 241, 227, .9), 0 0 1px rgba(248, 241, 227, 1); }
+.mapa__n--pueblo > span, .mapa__n--ciudad > span { color: #4a3426; }
+.mapa__n--ciudad > span { color: #3a2416; }
+.mapa__n--villa > span { color: rgba(74, 52, 38, .9); }
+.mapa__n--caserio > span { color: rgba(74, 52, 38, .78); }
+.mapa__n--rio > span { color: #2d4d5e; }
+.mapa__n--hito > span { color: #6e4c1f; }
+.mapa__n--meta > span {
+  color: #3a2416;
+  text-shadow: 0 0 3px rgba(248, 241, 227, 1), 0 0 9px rgba(248, 241, 227, .95), 0 0 18px rgba(214, 160, 80, .5);
+}
+.mapa__n--rumbo > span { color: #6e4c1f; background: rgba(250, 245, 234, .94); border-color: rgba(138, 100, 48, .55); box-shadow: 0 4px 10px -6px rgba(74, 52, 38, .45); }
+.mapa__n--ref > span { box-shadow: 0 2px 6px rgba(74, 52, 38, .35); }
+/* objetivo y pin en oro sobre crema */
+.mapa__meta i { background: radial-gradient(circle, #fff6dc 0 26%, #c99a4a 32% 54%, rgba(184, 134, 47, 0) 72%); }
+.mapa__meta b { border-color: rgba(164, 115, 44, .9); }
+.mapa__pin-cuerpo { filter: drop-shadow(0 6px 6px rgba(74, 52, 38, .4)); }
+.mapa__pin-sombra { background: radial-gradient(closest-side, rgba(74, 52, 38, .45), rgba(74, 52, 38, 0)); }
+.mapa__pin-luz { background: radial-gradient(closest-side, rgba(214, 160, 80, .26), rgba(214, 160, 80, .1) 55%, rgba(214, 160, 80, 0)); }
+.mapa__pin-rayo { background: linear-gradient(to top, #b8862f, rgba(214, 160, 80, .55) 45%, rgba(214, 160, 80, 0)); box-shadow: 0 0 9px 2px rgba(214, 160, 80, .35); }
+.mapa__pin-halo { background: radial-gradient(closest-side, rgba(214, 160, 80, .5), rgba(214, 160, 80, .2) 45%, rgba(214, 160, 80, 0) 100%); }
+.mapa__pin-ondas i { border-color: rgba(164, 115, 44, .9); box-shadow: 0 0 10px rgba(214, 160, 80, .3), inset 0 0 8px rgba(214, 160, 80, .2); }
+.mapa__pin-golpe { background: radial-gradient(closest-side, rgba(255, 246, 220, .95), rgba(214, 160, 80, .5) 40%, rgba(214, 160, 80, 0) 100%); }
+.mapa__pin-chispas i { background: #c99a4a; box-shadow: 0 0 6px 1px rgba(214, 160, 80, .7); }
+/* marco, brújula, coordenadas, escala, pista y atribución */
+.mapa__marco::before { border-color: rgba(138, 100, 48, .42); }
+.mapa__marco::after { border-color: rgba(138, 100, 48, .18); }
+.mapa__marco .mo { stroke: #9a7034; }
+.mapa__marco .md { fill: #9a7034; }
+.mapa__chip { color: #5e4019; text-shadow: 0 0 3px rgba(248, 241, 227, .98), 0 0 7px rgba(248, 241, 227, .9); }
+.mapa__escala i { border-color: rgba(94, 64, 25, .85); }
+.mapa__brujula circle { fill: rgba(250, 245, 234, .8); stroke: rgba(138, 100, 48, .6); }
+.mapa__brujula path { fill: rgba(110, 76, 31, .55); }
+.mapa__brujula path:first-of-type { fill: #6e4c1f; }
+.mapa__brujula path:nth-of-type(2) { fill: rgba(110, 76, 31, .35); }
+.mapa__brujula text { fill: #4a3426; }
+.mapa__pista { color: #6e4c1f; background: rgba(250, 245, 234, .92); border-color: rgba(138, 100, 48, .5); }
+.mapa.is-on .mapa__atrib { color: rgba(74, 52, 38, .9); }   /* (8.5 px: 4.49:1 → ≥ 5:1) */
+@media (min-width: 600px) {
+  .mapa.is-on .mapa__atrib { background: rgba(250, 245, 234, .8); }
+}
+/* tarjeta del lugar: crema con filete de oro */
+.mapa.is-on .mapa__info {
+  background: linear-gradient(180deg, rgba(251, 247, 238, .97), rgba(243, 234, 217, .97));
+  border-color: rgba(154, 112, 52, .62);
+  box-shadow: 0 18px 34px -16px rgba(74, 52, 38, .5), 0 0 0 1px rgba(255, 255, 255, .35), inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+.mapa.is-on .mapa__info::after { background: #f3ead9; border-color: rgba(154, 112, 52, .62); }
+.mapa.is-on .mapa__info.is-abajo::after { background: #fbf7ee; }
+.mapa.is-on .mapa__info.is-der::after, .mapa.is-on .mapa__info.is-izq::after { background: #f7f0e3; }
+.mapa.is-on .mapa__lugar { background-image: linear-gradient(176deg, #8a6430 10%, #6e4c1f 55%, #5e4019 100%); }
+.mapa.is-on .mapa__cuando { color: #6e4c1f; }
+.mapa.is-error .mapa__map { color: #6e4c1f; }

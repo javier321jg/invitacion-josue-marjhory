@@ -227,7 +227,9 @@ const TL_REDUCED = {
 // Topes de velocidad (s naturales por s reales) y tau = segundos de retraso que añaden +1× de velocidad.
 // COMPAT-FLUIDEZ: backCap 2.5 → 6 (quien ya baja tras la escritura no espera el alejamiento completo a 1×: main.js acorta
 // la sección al terminar de escribir y su tramo final guía el alejamiento)
-const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 3.2, writeCap: 6, backCap: 6, tau: 0.85, openEst: 7.6 };
+// Pedido del usuario (31/10): al deslizar rápido en el celular la escena seguía fija 7–8 pantallas (topes 3.2× / 6×). Con topes más altos
+// la apertura y la pluma se aceleran con el gesto (la pluma más ágil) y se pasa a la historia en ~3–4 pantallas; a ritmo normal no cambia nada.
+const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 5, writeCap: 14, backCap: 9, tau: 0.85, openEst: 7.6 };
 const READ_HOLD = 0.7;   // s (naturales) con todo escrito antes de alejarse
 const BACK_DUR = 2.6;    // s (naturales) del alejamiento final; los CTA aparecen al 55 %
 
@@ -695,7 +697,7 @@ export async function mountScroll(container, opts = {}) {
   key.shadow.camera.near = 0.35; key.shadow.camera.far = 2.6;
   key.shadow.bias = -0.0001; key.shadow.normalBias = 0.0009;
   scene.add(key, key.target);
-  const hemi = new THREE.HemisphereLight('#fff0dc', '#a88a64', 0.4); // CREMA: la sala clara rellena las sombras (antes 0.13 a oscuras)
+  const hemi = new THREE.HemisphereLight('#fff0dc', '#d2bc98', 0.4); // AJUSTES: suelo más claro (antes #a88a64: mantel tostado) // CREMA: la sala clara rellena las sombras (antes 0.13 a oscuras)
   scene.add(hemi);
   // contraluz frío acotado al pergamino (como direccional teñía de azul toda la mesa en pantallas anchas)
   const rim = new THREE.SpotLight('#a9bfff', 1.15, 0, 0.42, 1.0, 2);
@@ -751,6 +753,9 @@ export async function mountScroll(container, opts = {}) {
   const tableMat = new THREE.MeshStandardMaterial({ map: tAlb, normalMap: tNrm, roughnessMap: tRgh, roughness: tRgh ? 1 : 0.9, metalness: 0,
     color: tNrm ? '#b9a493' : '#f4ede2', envMapIntensity: 0.55 });
   if (tNrm) tableMat.normalScale.set(0.7, 0.7);
+  // AJUSTES (todo crema): con la luz rasante el mantel se veía tostado (L* ≈ 70) en el tercio inferior de la vista completa;
+  // un poco de luz propia con su misma trama lo deja crema sin borrar la sombra del pergamino ni la de las velas
+  if (!tNrm) { tableMat.emissive.set('#eadfca'); tableMat.emissiveMap = tAlb; tableMat.emissiveIntensity = 0.6; }
   const table = new THREE.Mesh(new THREE.PlaneGeometry(TABLE, TABLE), tableMat);
   table.rotation.x = -Math.PI / 2; table.receiveShadow = true; table.name = 'mesa';
   scene.add(table);
@@ -1856,6 +1861,17 @@ export async function mountScroll(container, opts = {}) {
     cleanU.uCleanNdc.value.set(x0, y0, x1, y1);
     cleanU.uCleanAmt.value = cleanAmt;
   }
+  // AJUSTES (9.4, "desde lejos no se ve"): tinta con más cuerpo cuando el renglón tiene pocos píxeles REALES (vista completa en
+  // móvil a DPR 1: el trazo fino filtrado se agrisaba a 8:1); con ≥ 15 px de altura-x (lectura de cerca) queda como estaba
+  const _xa = new THREE.Vector3(), _xb = new THREE.Vector3();
+  function updateInkBold() {
+    const u = P.uniforms?.pInkBold; if (!u) return;
+    _xa.set(TA.center[0], TA.center[1], 0.0004); _xb.set(TA.center[0], TA.center[1] + XH, 0.0004);
+    P.group.localToWorld(_xa); P.group.localToWorld(_xb); _xa.project(camera); _xb.project(camera);
+    const xhDev = Math.abs(_xb.y - _xa.y) * H / 2 * dpr;
+    const b = clamp(1.7 + (15 - xhDev) * 0.2, 1.7, 2.9);
+    u.value += (b - u.value) * 0.25;
+  }
 
   // ───────── un paso de simulación
   const _rp = new THREE.Vector3();
@@ -1956,6 +1972,7 @@ export async function mountScroll(container, opts = {}) {
     updateCamera(dt, dts);
     updateGrade(dt);
     updateCleanRect();
+    updateInkBold();
     // ESCENA · pluma (js/pluma.js, attachQuill): después de mover el rig, setWriting y la cámara
     if (quill) {
       try { quill.update(dt, time, pace.wt, { phase: quillPhase(), camera, light: key, rate: pace.wRateS }); }
@@ -1978,10 +1995,10 @@ export async function mountScroll(container, opts = {}) {
       const w = seq.writeT >= 0 ? sstep(0, 1.6, t - seq.writeT) : seq.unrollT >= 0 ? 0.6 * sstep(0, TL.unrollDur, t - seq.unrollT) : 0;
       sepia = lerp(lerp(0.1, 0.34, o), 0.12, w);
       grain = lerp(lerp(0.026, 0.055, o), 0.024, w);
-      vig = lerp(0.5, 0.62, o * (1 - w));
+      vig = lerp(0.5, 0.62, o * (1 - w)) * lerp(1, 0.6, w); // AJUSTES: escrita la hoja, borde apenas tostado (todo crema)
       expo = 1 + o * (1 - w) * (Math.sin(time * 31) * 0.012 + Math.sin(time * 13.7) * 0.01);
       dofA = goalIsSeal() ? 1 : 0.8;
-    } else if (opened) { sepia = 0.12; grain = 0.024; vig = 0.5; dofA = 0.75; bloom = 0.55; }
+    } else if (opened) { sepia = 0.12; grain = 0.024; vig = 0.3; dofA = 0.75; bloom = 0.55; }
     if (reduced) { grain *= 0.6; expo = 1; }
     const k = clamp(dt * 2.5);
     grade.sepia = lerp(grade.sepia, sepia, k); grade.grain = lerp(grade.grain, grain, k); grade.vig = lerp(grade.vig, vig, k);

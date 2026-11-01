@@ -83,6 +83,8 @@ a { color: inherit; }
   letter-spacing: .34em; text-transform: uppercase; color: var(--gold); text-indent: .34em; text-wrap: balance;
 }
 @media (min-width: 720px) { .eyebrow { font-size: 11.5px; } }
+/* AJUSTES (contraste AA): sobre el crema con polvo de oro y viñeta del hero el oro viejo medía 3.97:1 → oro profundo ≈ 5.5:1 */
+.hero__eyebrow { color: #634418; font-weight: 600; }
 .ornament { display: block; color: var(--gold); font-size: 18px; line-height: 1; margin: 0 auto 18px; opacity: .9; }
 .line { display: block; }
 .gold-text {
@@ -419,6 +421,40 @@ html.parch-reading .fx-vignette { opacity: .25; }
   .cta { flex-direction: row; justify-content: flex-start; min-height: 44px; padding: 0 16px; border-radius: 999px; font-size: 10.5px; letter-spacing: .16em; gap: 9px; }
   .cta span { white-space: nowrap; }
   .cta svg { width: 16px; height: 16px; }
+}
+
+/* AJUSTES (9.2): «Desliza para continuar» cuando el invitado se detiene con el pergamino escrito (main.js: cueTick).
+   Móvil: sobre la fila de CTA; tableta: sobre las píldoras; escritorio y apaisado: bajo la columna de CTA. */
+.parch__cue {
+  position: absolute; z-index: 3; left: 50%; bottom: calc(104px + var(--safe-b) + var(--bar)); transform: translate(-50%, 8px);
+  display: flex; align-items: center; gap: 10px; padding: 7px 19px 7px 17px; border-radius: 999px; white-space: nowrap;
+  background: rgba(248, 241, 227, .9); border: 1px solid rgba(138, 100, 48, .35); color: var(--ink);
+  box-shadow: 0 10px 24px -14px rgba(110, 76, 31, .5);
+  font-family: var(--f-sans); font-weight: 600; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; line-height: 1;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .6s ease, transform .6s var(--ease), visibility 0s .6s;
+}
+.parch__cue.is-on { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .6s ease, transform .6s var(--ease), visibility 0s; }
+.parch__cue i {
+  position: relative; flex: none; width: 8px; height: 8px; margin-top: -6px;
+  border-right: 2px solid var(--gold-2); border-bottom: 2px solid var(--gold-2); transform: rotate(45deg);
+  animation: cueBounce 1.6s var(--ease-io) infinite;
+}
+@keyframes cueBounce { 0%, 100% { transform: translateY(0) rotate(45deg); } 50% { transform: translateY(3px) rotate(45deg); } }
+html.reduced .parch__cue i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .parch__cue i { animation: none; } }
+@media (max-width: 359px) { .parch__cue { font-size: 10px; letter-spacing: .2em; padding: 7px 16px 7px 13px; } }
+@media (min-width: 720px) { .parch__cue { bottom: calc(92px + var(--safe-b) + var(--bar)); } }
+@media (min-width: 1024px) and (min-aspect-ratio: 4/3) {
+  /* centrado bajo la columna de CTA (220 px de ancho) */
+  .parch__cue { left: auto; right: calc(max(4vw, 40px) + 110px); bottom: auto; top: calc(50% + 116px); font-size: 10px; letter-spacing: .24em; transform: translate(50%, 8px); }
+  .parch__cue.is-on { transform: translate(50%, 0); }
+}
+@media (max-height: 520px) and (orientation: landscape) and (min-width: 560px) {
+  .parch__cue {
+    left: auto; right: calc(max(3vw, 14px, calc(env(safe-area-inset-right, 0px) + 8px)) + 98px); bottom: auto; top: calc(50% - var(--bar) / 2 + 84px);
+    font-size: 9.5px; letter-spacing: .18em; padding: 6px 17px 6px 13px; transform: translate(50%, 8px);
+  }
+  .parch__cue.is-on { transform: translate(50%, 0); }
 }
 
 /* Pergamino en HTML (fallback sin WebGL y tarjeta "Leer texto") */

@@ -133,6 +133,8 @@
   color: var(--fin-ivory); text-shadow: 0 1px 4px rgba(14, 10, 40, .55);
 }
 #final .finale__date i { color: #ffd88e; font-size: 7px; opacity: 1; }
+/* AJUSTES (contraste AA): sobre el cielo del atardecer la fecha y el lugar medían 3.3–4.3:1 → vidrio algo más hondo (≈ 5:1) */
+#final .finale__date { background: linear-gradient(158deg, rgba(255, 255, 255, .22) 0%, rgba(236, 228, 255, .06) 52%, rgba(255, 255, 255, .1) 100%), rgba(36, 24, 74, .34); }
 @media (max-width: 559px) {
   #final .finale__date { flex-direction: column; gap: 8px; border-radius: 22px; padding: 12px 22px; }
   #final .finale__date i { display: none; }

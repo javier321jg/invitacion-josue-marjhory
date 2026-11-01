@@ -60,3 +60,8 @@ export const FINALE = {
   lead: 'Nos encantará celebrar contigo',
   back: 'Volver al inicio ↑',
 };
+
+// Avisos de la interfaz
+export const UI = {
+  seguir: 'Desliza para continuar', // aparece si el invitado se detiene con el pergamino ya escrito (decisión n.º 9.2)
+};

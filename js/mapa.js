@@ -710,7 +710,8 @@ export function mountMapa(root, opts = {}) {
         img.__w = z.img[S.var + '_px'][0];
         img.style.width = z.img[S.var + '_px'][0] + 'px';
         img.style.height = z.img[S.var + '_px'][1] + 'px';
-        img.src = new URL(z.img[S.var], BASE).href;
+        // AJUSTES (todo crema): relieve en papel crema (tools/mapa/crema.py → <nombre>-crema.webp)
+        img.src = new URL(String(z.img[S.var]).replace(/\.webp$/, '-crema.webp'), BASE).href;
         img.__op = -1;
         return img.decode ? img.decode().catch(() => {}) : new Promise(r => { img.onload = img.onerror = r; });
       };

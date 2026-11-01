@@ -1097,6 +1097,16 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
     // ---- compilar sin bloquear (KHR_parallel_shader_compile) ----
     try { await renderer.compileAsync(scene, camera); } catch {}
     if (disposed || giveUp) { G.dispose(); gl = null; return; }
+    // AJUSTES (fluidez pergamino → historia): las texturas y los búferes se subían en el PRIMER cuadro, que caía justo al
+    // soltarse el pergamino (tirón junto con el montaje del final). Se suben antes, en ratos ociosos, y se dibuja un cuadro
+    // de calentamiento (el lienzo aún está oculto: h3d-wait)
+    for (const t of new Set([tPhoto, tDepth, tFlower, tPetA, tPetB])) {
+      await new Promise(r => idle(r, 800));
+      if (disposed || giveUp) break;
+      try { renderer.initTexture(t); } catch {}
+    }
+    if (!disposed && !giveUp) { await new Promise(r => idle(r, 800)); try { if (!G.shown) { renderer.render(scene, camera); renderer.clear(); } } catch {} }
+    if (disposed || giveUp) { G.dispose(); gl = null; return; }
 
     // ---- estado de la animación ----
     let last = 0, t = 0, beat = 0, sweep = 0, line = 0, open = 0, energyK = 0;
@@ -1143,6 +1153,16 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
     };
 
     let visFor = 0;
+    // AJUSTES (hallazgo 48, iOS en modo de bajo consumo: rAF a 30 Hz): ritmo FIJO de ~33 ms ≠ GPU lenta (criterio de
+    // cap30() en scroll3d.js); sin esto bajaba el nivel (menos flores, foto más blanda) sin necesidad
+    const dts = new Float32Array(64); let dtN = 0;
+    const cap30 = () => {
+      const n = Math.min(dtN, 64);
+      if (n < 40) return false;
+      const a = Array.from(dts.subarray(0, n)).sort((x, y) => x - y);
+      const med = a[n >> 1], p90 = a[Math.floor(n * 0.9)];
+      return med > 0.031 && med < 0.0355 && p90 < 0.038;
+    };
     const targetFromScroll = vh => {
       const frameTopV = L.wrapDocTop - scrollY + L.fcy - L.fh / 2;
       return clamp((vh - frameTopV) / (0.38 * vh + L.fh / 2));   // 0: asoma por abajo · 1: la foto entera a la vista
@@ -1154,6 +1174,7 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
       if (giveUp) { running = false; return; }   // se pasó a la imagen (WebGL tardó o se perdió el contexto)
       raf = requestAnimationFrame(frame);
       const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60;
+      if (last && now - last > 0 && now - last < 200) dts[(dtN++) & 63] = (now - last) / 1000;
       last = now; t += dt;
       // medida de respaldo cada ~0.5 s (por si el layout de arriba cambió)
       if (now - measureAt > 500) {
@@ -1242,7 +1263,7 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
         api.fps = Math.round(fps * 10) / 10;
         winT0 = now; winFrames = 0; warm++;
         if (warm > 1 && !G.locked) {
-          const lim = narrow ? 38 : 48;
+          const lim = cap30() ? 26 : (narrow ? 38 : 48);
           const busy = !!window.__inv?.shell?.state?.parchVisible;
           if (fps < lim && tier > 0 && !busy) {
             if (++lowWin >= 3) {

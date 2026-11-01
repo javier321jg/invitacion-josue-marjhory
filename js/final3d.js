@@ -587,13 +587,24 @@ export async function mountFinal(section, opts = {}) {
     LU.uDpr.value = dpr;
     DU.uDust.value = TIERS[tier].dust;
     api.quality = tier;
+    // AJUSTES: el búfer nuevo se dibuja enseguida (no queda un cuadro vacío hasta el siguiente rAF); solo ya compilado
+    if (api.mode === 'gl') { try { renderer.render(scene, camera); } catch { /* */ } }
   };
   resize();
   // UNIR: declarado antes de los avisos de tamaño: durante el await de compileAsync un resize (la barra del navegador móvil
   // al desplazarse) o un cambio de maquetación llamaba a kick() y fallaba con "Cannot access 'inView' before initialization"
   let running = false, raf = 0, last = 0, inView = false;
   let rt = 0;
-  const onResize = () => { clearTimeout(rt); rt = setTimeout(() => { resize(); kick(); }, 90); };
+  // AJUSTES (WebKit: tras redimensionar el lienzo en caliente el paisaje podía quedar sin presentarse; Safari en iOS dispara
+  // 'resize' cada vez que la barra de direcciones aparece o se oculta): en táctiles, un cambio SOLO de alto menor que un
+  // cuarto de pantalla no rehace el búfer (el fondo mide 100lvh); además ahorra memoria y parpadeo
+  let szW = innerWidth, szH = innerHeight;
+  const onResize = () => {
+    const w = innerWidth, h = innerHeight;
+    if (COARSE && w === szW && Math.abs(h - szH) < 0.25 * Math.max(h, szH)) return;
+    szW = w; szH = h;
+    clearTimeout(rt); rt = setTimeout(() => { resize(); kick(); }, 90);
+  };
   addEventListener('resize', onResize, { passive: true });
   let ro = null;
   try { ro = new ResizeObserver(() => { const t = secTop; measureSec(); if (Math.abs(t - secTop) > 1) kick(); }); ro.observe(document.querySelector('main') || document.body); } catch { ro = null; }
@@ -635,6 +646,16 @@ export async function mountFinal(section, opts = {}) {
     fpsN: 0, fpsT: 0, lowFor: 0, okFor: 0, ups: 0, warm: 0, lastCssK: -1, lastCssR: -1, lastFe: -1,
   };
   const reset = () => { st.k = 0; st.reveal = 0; st.revealT0 = -1; st.sunT0 = -1; st.shootAt = -1; };
+  // AJUSTES (hallazgo 48, iOS en modo de bajo consumo: rAF a 30 Hz): un ritmo FIJO de ~33 ms no es una GPU lenta; sin esto
+  // la calidad bajaba hasta el nivel 0 y quitaba el vidrio esmerilado (mismo criterio que cap30() de scroll3d.js)
+  const dts = new Float32Array(64); let dtN = 0;
+  function cap30() {
+    const n = Math.min(dtN, 64);
+    if (n < 40) return false;
+    const a = Array.from(dts.subarray(0, n)).sort((x, y) => x - y);
+    const med = a[n >> 1], p90 = a[Math.floor(n * 0.9)];
+    return med > 0.031 && med < 0.0355 && p90 < 0.038;
+  }
 
   const sunScreenX =() => (vh > vw * 1.05 ? 0.78 : 0.73);
   const skylineAt = x => {
@@ -650,6 +671,7 @@ export async function mountFinal(section, opts = {}) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.1, Math.max(0, (now - (last || now)) / 1000));
     last = now;
+    if (dt > 0 && dt < 0.2) dts[(dtN++) & 63] = dt;
     st.t += dt;
     const t = st.t;
 
@@ -752,7 +774,7 @@ export async function mountFinal(section, opts = {}) {
     if (st.fpsT >= 1) {
       api.fps = Math.round(st.fpsN / st.fpsT);
       if (FIX_Q == null && document.visibilityState === 'visible' && st.warm > 2.5) {
-        if (api.fps < 46) { st.lowFor += st.fpsT; st.okFor = 0; } else { st.lowFor = 0; st.okFor = api.fps >= 57 ? st.okFor + st.fpsT : 0; }
+        if (api.fps < (cap30() ? 27 : 46)) { st.lowFor += st.fpsT; st.okFor = 0; } else { st.lowFor = 0; st.okFor = api.fps >= 57 ? st.okFor + st.fpsT : 0; }
         if (st.lowFor >= 2.5) {
           st.lowFor = 0;
           if (tier > 0) { tier--; resize(); } else section.classList.add('is-lowq');
@@ -911,9 +933,22 @@ function auto() {
     section.classList.add('is-img');
   });
   if (!('IntersectionObserver' in window)) { go(); return; }
+  // AJUSTES (fluidez pergamino → historia): con 250 % el montaje y la compilación caían justo cuando el pergamino se soltaba y
+  // la historia hacía su primer cuadro (tirón de ~300 ms). Ahora se monta más cerca (120 %), cuando la foto de la historia ya
+  // se formó (o tras 1.5 s, o si #final ya asoma) y en un rato ocioso.
+  const ric = window.requestIdleCallback ? f => requestIdleCallback(f, { timeout: 600 }) : f => setTimeout(f, 60);
+  const idleGo = () => {
+    const t0 = performance.now();
+    const check = () => {
+      const hs = window.__inv?.historia, r = section.getBoundingClientRect();
+      const formed = !hs || hs.mode !== 'gl' || (hs.progress ?? 0) >= 0.999;
+      if (formed || r.top < innerHeight * 1.05 || performance.now() - t0 > 1500) ric(go); else setTimeout(check, 200);
+    };
+    check();
+  };
   const near = new IntersectionObserver(es => {
-    if (es.some(e => e.isIntersecting)) { near.disconnect(); go(); }
-  }, { rootMargin: '250% 0px 250% 0px' });
+    if (es.some(e => e.isIntersecting)) { near.disconnect(); idleGo(); }
+  }, { rootMargin: '120% 0px 120% 0px' });
   near.observe(section);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto, { once: true }); else auto();

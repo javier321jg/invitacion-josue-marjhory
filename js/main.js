@@ -79,6 +79,7 @@ const els = {
   names: $('.hero__names'), parch: $('#pergamino'), scrollStage: $('#scroll-stage'), parchHead: $('.parch__head'),
   hint: $('#abrir-pergamino'), ctas: $('#parch-ctas'), fallback: $('#parch-fallback'), a11y: $('#invitacion-texto'),
   reader: $('#lectura'), readerCard: $('#reader-card'), musicBtn: $('#musica'), dust: $('.fx-dust'),
+  cue: $('#parch-cue'),
 };
 
 const state = {
@@ -859,6 +860,22 @@ function parchFlow(pr, vh) {
   }
   if (trimMap && !trimMap.done && state.opened) { trimMap.done = true; trimParch(els.parch.getBoundingClientRect(), TRIM_DONE); }
 }
+/* AJUSTES (decisión n.º 9.2, «ahí pienso que ya terminó la animación»): con el pergamino escrito y los CTA a la vista, si la
+ * sección sigue fija y el invitado se detiene 1.5 s, aparece «Desliza para continuar» (content.js: UI.seguir) con una flecha;
+ * el siguiente gesto lo retira y, si vuelve a detenerse, reaparece. Solo con el 3D (la tarjeta HTML no queda fija). */
+const CUE_IDLE = 1500;
+let cueT = 0, cueY = NaN;
+const cueOk = () => state.opened && !state.fallbackScroll && !!state.scroll && parchPinned && !document.hidden && !els.reader?.open;
+function cueArm() {
+  clearTimeout(cueT); els.cue.classList.remove('is-on');
+  cueT = setTimeout(() => { cueT = 0; if (cueOk()) els.cue.classList.add('is-on'); }, CUE_IDLE);
+}
+function cueTick() {
+  if (!els.cue) return;
+  if (!cueOk()) { clearTimeout(cueT); cueT = 0; cueY = NaN; els.cue.classList.remove('is-on'); return; }
+  if (scrollY !== cueY) { cueY = scrollY; cueArm(); } // (las llamadas a update() sin desplazamiento no lo reinician)
+}
+function cueKick() { if (els.cue && (cueT || els.cue.classList.contains('is-on')) && cueOk()) cueArm(); }
 /* FIX (móvil lento / red lenta): la sección queda fija y el 3D todavía se monta (se ve el póster con el anillo de progreso).
  * Antes el invitado podía recorrer toda la sección viendo solo el póster. Ahora la sección se alarga (igual que el freno, sin
  * mover el scroll) mientras el montaje avanza, hasta 12 s (20 s si ya va por el 85 %); después se abre la tarjeta HTML para que
@@ -1062,6 +1079,7 @@ function update() {
   parchBrake(pr, vh);
   mountBrake(pr, vh);
   parchFlow(pr, vh);
+  cueTick();
   if (!els.ctas.hidden && (ctaShift.x || ctaShift.y || (window.visualViewport?.scale ?? 1) > 1.01)) queueFitCtas();
   // Polvo de oro: solo en secciones sin 3D
   const story = $('#historia').getBoundingClientRect();
@@ -1182,6 +1200,8 @@ function boot() {
   });
 
   addEventListener('scroll', onScroll, { passive: true });
+  // AJUSTES: «Desliza para continuar» se retira con el siguiente gesto (antes de que llegue el scroll)
+  for (const ev of ['wheel', 'touchstart', 'keydown']) addEventListener(ev, cueKick, { passive: true });
   addEventListener('resize', () => {
     fitTrim();
     onScroll();
