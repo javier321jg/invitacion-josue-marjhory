@@ -70,6 +70,11 @@
 .cgate .cg-hint { color: #634a30; }
 .cgate .cg-names { filter: drop-shadow(0 1px 0 #fff7df) drop-shadow(0 1px 1px #77552055); }
 .cgate .cg-names { font-size: min(12.7vw, 10.7vh, 104px); font-size: min(12.7vw, 10.7svh, 104px); }
+/* Burnished gold remains readable while the flowers take the motion on mobile. */
+.cgate.cg-flat .cg-names {
+  background-image: linear-gradient(165deg, #78511e, #a87b36 28%, #8c6026 53%, #b88b43 75%, #78511e);
+  background-size: 100% 100%; background-position: 0 0;
+}
 .music__label { display: none; }
 .cg-legacy { height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; background: #f5ead2 url('../assets/botanical/paper-romano.webp'); text-align: center; }
 .cg-legacy h1 { font: 48px/1.2 'Great Vibes',Georgia,serif; margin: 15px 0; }
