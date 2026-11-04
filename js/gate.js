@@ -24,6 +24,10 @@
 import { COUPLE, EVENT } from './content.js';
 
 const rel = p => new URL(p, import.meta.url).href;
+import { device } from './device.js?v=20261104b';
+import { createRibbonLite } from './ribbon-lite.js?v=20261104b';
+import { botanicalCorner, botanicalSpines } from './botanical.js?v=20261104b';
+
 export const GATE_ASSETS = {
   reposo: rel('../assets/video/lazo_reposo_alpha.mp4'),
   abrir: rel('../assets/video/lazo_abrir_alpha.mp4'),
@@ -44,112 +48,11 @@ const now = () => performance.now();
 function rng(seed) {
   return () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-const f1 = n => (Math.round(n * 10) / 10).toString();
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Arte vectorial (ondas chocolate, papel recortado, hilos de oro, flores marfil, ramitas)
    ═══════════════════════════════════════════════════════════════════════════ */
-function flower(cx, cy, r, rot, id, rand) {
-  let s = `<g transform="translate(${f1(cx)} ${f1(cy)}) rotate(${f1(rot)})" filter="url(#${id}-sh)">`;
-  for (let i = 0; i < 5; i++) {
-    const a = i * 72 + (rand() - .5) * 14, rr = r * (.88 + rand() * .2);
-    const d = `M0 0C${f1(-.62 * rr)} ${f1(-.16 * rr)} ${f1(-.74 * rr)} ${f1(-.9 * rr)} ${f1(-.08 * rr)} ${f1(-rr)}C${f1(.1 * rr)} ${f1(-1.03 * rr)} ${f1(.2 * rr)} ${f1(-.95 * rr)} ${f1(.27 * rr)} ${f1(-.9 * rr)}C${f1(.74 * rr)} ${f1(-.78 * rr)} ${f1(.6 * rr)} ${f1(-.2 * rr)} 0 0Z`;
-    s += `<path transform="rotate(${f1(a)})" d="${d}" fill="url(#${id}-pet)" stroke="rgba(120,84,52,.34)" stroke-width=".7"/>`;
-    s += `<path transform="rotate(${f1(a)})" d="M0 ${f1(-.14 * rr)}C${f1(-.06 * rr)} ${f1(-.42 * rr)} ${f1(.05 * rr)} ${f1(-.62 * rr)} ${f1(-.01 * rr)} ${f1(-.84 * rr)}" fill="none" stroke="rgba(150,110,70,.26)" stroke-width=".6"/>`;
-  }
-  for (let i = 0; i < 11; i++) {
-    const a = (i / 11) * Math.PI * 2 + rand() * .3, l = r * (.22 + rand() * .14);
-    const x = Math.cos(a) * l, y = Math.sin(a) * l;
-    s += `<path d="M0 0L${f1(x)} ${f1(y)}" stroke="#8a6430" stroke-width=".55" opacity=".8"/><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(r * .035 + .5)}" fill="#a77c3c"/>`;
-  }
-  s += `<circle r="${f1(r * .15)}" fill="url(#${id}-ctr)"/></g>`;
-  return s;
-}
-
-function sprig(x0, y0, angDeg, len, bend, n, id, rand) {
-  const a = angDeg * Math.PI / 180, x2 = x0 + Math.cos(a) * len, y2 = y0 + Math.sin(a) * len;
-  const cx = (x0 + x2) / 2 - Math.sin(a) * bend, cy = (y0 + y2) / 2 + Math.cos(a) * bend;
-  const P = t => [(1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x2, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y2];
-  const D = t => [2 * (1 - t) * (cx - x0) + 2 * t * (x2 - cx), 2 * (1 - t) * (cy - y0) + 2 * t * (y2 - cy)];
-  let s = `<path class="cg-thread-draw" pathLength="1" style="animation-delay:${f1(.9 + rand() * .8)}s" d="M${f1(x0)} ${f1(y0)}Q${f1(cx)} ${f1(cy)} ${f1(x2)} ${f1(y2)}" fill="none" stroke="url(#${id}-gold)" stroke-width="1.05" stroke-linecap="round"/>`;
-  s += `<g class="cg-fade-in" style="animation-delay:${f1(1.6 + rand() * .8)}s">`;
-  for (let i = 1; i <= n; i++) {
-    const t = .16 + .8 * (i / n), [px, py] = P(t), [dx, dy] = D(t);
-    const side = i % 2 ? 1 : -1, ang = Math.atan2(dy, dx) * 180 / Math.PI + side * (34 + rand() * 18);
-    const L = len * (.17 - t * .07) * (.85 + rand() * .3);
-    s += `<path transform="translate(${f1(px)} ${f1(py)}) rotate(${f1(ang)})" d="M0 0Q${f1(L * .5)} ${f1(-L * .3)} ${f1(L)} 0Q${f1(L * .5)} ${f1(L * .3)} 0 0Z" fill="url(#${id}-leaf)" opacity=".92"/>`;
-  }
-  for (let k = 0; k < 4; k++) {
-    const bx = x2 + (rand() - .5) * 9, by = y2 + (rand() - .5) * 9;
-    s += `<circle cx="${f1(bx)}" cy="${f1(by)}" r="${f1(1.3 + rand() * 1.4)}" fill="#e9cf94" stroke="#8a6430" stroke-width=".5"/>`;
-  }
-  return s + '</g>';
-}
-
-// FIX: los destellos son <i> HTML con su propia capa (transform/opacity en el compositor). Dentro del SVG obligaban a
-// recalcular estilos y repintar los adornos (con sombras) en cada cuadro: ~3300 recálculos y ~0.5 s de pintura cada 4 s.
-function glint(x, y, s, delay) {
-  const d = 2.2 * s, k = 100 / 420;
-  return `<i class="cg-glint" style="left:${f1(x * k)}%;top:${f1(y * k)}%;width:${f1(d * k)}%;animation-delay:${f1(delay)}s">` +
-    `<svg viewBox="${f1(-d / 2)} ${f1(-d / 2)} ${f1(d)} ${f1(d)}" aria-hidden="true" focusable="false">` +
-    `<path d="M0 ${-s}C${f1(s * .1)} ${f1(-s * .18)} ${f1(s * .18)} ${f1(-s * .1)} ${s} 0C${f1(s * .18)} ${f1(s * .1)} ${f1(s * .1)} ${f1(s * .18)} 0 ${s}C${f1(-s * .1)} ${f1(s * .18)} ${f1(-s * .18)} ${f1(s * .1)} ${-s} 0C${f1(-s * .18)} ${f1(-s * .1)} ${f1(-s * .1)} ${f1(-s * .18)} 0 ${-s}Z" fill="#fffdf6"/></svg></i>`;
-}
-
-function defs(id) {
-  return `<defs>
-    <linearGradient id="${id}-gold" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="420" y2="420">
-      <stop offset="0" stop-color="#8a6430"/><stop offset=".22" stop-color="#e2c486"/><stop offset=".4" stop-color="#a98142"/>
-      <stop offset=".58" stop-color="#f1dca8"/><stop offset=".78" stop-color="#9c7438"/><stop offset="1" stop-color="#d9bb7c"/></linearGradient>
-    <linearGradient id="${id}-choc" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5e4130"/><stop offset=".55" stop-color="#4a3426"/><stop offset="1" stop-color="#3a281d"/></linearGradient>
-    <linearGradient id="${id}-mocha" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#dcc8a6"/><stop offset="1" stop-color="#c9b08a"/></linearGradient>
-    <linearGradient id="${id}-cream" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbf6ea"/><stop offset="1" stop-color="#f1e6d0"/></linearGradient>
-    <linearGradient id="${id}-leaf" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#8a6430"/><stop offset=".55" stop-color="#cfae6c"/><stop offset="1" stop-color="#f0dba6"/></linearGradient>
-    <radialGradient id="${id}-pet" cx=".5" cy="1" r="1" fx=".5" fy="1">
-      <stop offset="0" stop-color="#e3cca6"/><stop offset=".38" stop-color="#f5ead6"/><stop offset="1" stop-color="#fffbf2"/></radialGradient>
-    <radialGradient id="${id}-ctr"><stop offset="0" stop-color="#f3dfa8"/><stop offset=".6" stop-color="#c49a52"/><stop offset="1" stop-color="#8a6430"/></radialGradient>
-    <radialGradient id="${id}-gl"><stop offset="0" stop-color="#fff6d8" stop-opacity=".95"/><stop offset=".45" stop-color="#e2be78" stop-opacity=".55"/><stop offset="1" stop-color="#c79a4e" stop-opacity="0"/></radialGradient>
-    <filter id="${id}-sh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="1.4" dy="2.4" stdDeviation="2.4" flood-color="#3a281d" flood-opacity=".3"/></filter>
-    <filter id="${id}-cut" x="-20%" y="-20%" width="150%" height="150%"><feDropShadow dx="2.5" dy="3.5" stdDeviation="4.5" flood-color="#3a281d" flood-opacity=".28"/></filter>
-  </defs>`;
-}
-
-function cornerArt(id, seed) {
-  const rand = rng(seed);
-  const th = (d, w, delay, op = 1) => `<path class="cg-thread-draw" pathLength="1" style="animation-delay:${delay}s" d="${d}" fill="none" stroke="url(#${id}-gold)" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
-  return `<svg viewBox="0 0 420 420" aria-hidden="true" focusable="false">${defs(id)}
-    <path d="M0 0H332C302 20 276 44 254 80C228 122 208 160 166 192C124 224 78 236 46 272C27 293 12 322 0 352Z" fill="url(#${id}-choc)"/>
-    <path d="M0 0H262C236 24 216 52 198 86C176 126 142 148 104 172C70 194 38 214 0 268Z" fill="url(#${id}-mocha)" filter="url(#${id}-cut)"/>
-    <path d="M0 0H194C174 22 166 54 148 82C126 116 94 130 64 152C38 172 18 198 0 230Z" fill="url(#${id}-cream)" filter="url(#${id}-cut)"/>
-    ${th('M344 -6C312 18 284 44 262 82C236 126 214 166 170 198C126 230 80 242 50 278C30 302 14 330 2 364', 1.5, .2)}
-    ${th('M272 -8C244 20 224 50 206 86C184 128 148 152 108 176C74 198 40 220 -4 280', 1, .45, .85)}
-    ${th('M206 -6C186 18 176 52 158 82C136 118 102 134 72 156C44 178 22 204 2 240', 1.1, .7)}
-    ${th('M360 -10C352 30 372 58 398 56C420 54 424 28 404 24C380 20 382 70 420 104', .9, 1.1, .8)}
-    ${th('M-10 372C20 360 50 368 58 392C64 410 54 424 40 420', .9, 1.3, .8)}
-    ${sprig(214, 112, 34, 150, 18, 7, id, rand)}
-    ${sprig(122, 190, 64, 126, -16, 6, id, rand)}
-    ${sprig(262, 52, 8, 112, -10, 5, id, rand)}
-    ${flower(176, 108, 34, 12, id, rand)}
-    ${flower(96, 186, 25, -24, id, rand)}
-    ${flower(262, 40, 17, 40, id, rand)}
-  </svg>${glint(344, 22, 7, 1.2)}${glint(246, 96, 5.5, 3.1)}${glint(60, 266, 6.5, 4.6)}`;
-}
-
-function miniArt(id, seed) {
-  const rand = rng(seed);
-  return `<svg viewBox="0 0 420 420" aria-hidden="true" focusable="false">${defs(id)}
-    <path class="cg-thread-draw" pathLength="1" style="animation-delay:.6s" d="M-6 236C40 222 92 236 118 284C140 326 120 384 70 392C30 398 16 360 44 344C80 324 132 360 150 426" fill="none" stroke="url(#${id}-gold)" stroke-width="2" stroke-linecap="round"/>
-    <path class="cg-thread-draw" pathLength="1" style="animation-delay:.9s" d="M-6 300C30 290 62 300 76 334C86 360 84 392 92 426" fill="none" stroke="url(#${id}-gold)" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>
-    ${sprig(10, 410, -58, 200, 26, 8, id, rand)}
-  </svg>${glint(118, 284, 9, 2.4)}`;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   Plantilla de la puerta
-   ═══════════════════════════════════════════════════════════════════════════ */
+// The botanical frame is shared with the lightweight mobile renderer.
 const THREAD_D = 'M3 14C34 14 52 9 76 11C92 12.4 98 19 106 18.6C114 18.2 116 9 109 7.2C101 5.3 95 13 101 17C108 21 122 15 138 13C160 10.6 184 13.6 237 13';
 
 function column(kind, T) {
@@ -183,10 +86,12 @@ function column(kind, T) {
 
 function face(side, T) {
   return `<div class="cg-face cg-paper">
-      <div class="cg-art cg-art--tl">${cornerArt(`cg${side}a`, 11)}</div>
-      <div class="cg-art cg-art--br">${cornerArt(`cg${side}b`, 23)}</div>
-      <div class="cg-art cg-art--bl">${miniArt(`cg${side}c`, 37)}</div>
-      <div class="cg-art cg-art--tr">${miniArt(`cg${side}d`, 41)}</div>
+      <div class="cg-roman-frame"><i></i><i></i><i></i><i></i></div>
+      ${botanicalSpines()}
+      <div class="cg-botanical cg-botanical--tl">${botanicalCorner(`bot-${side}-a`)}</div>
+      <div class="cg-botanical cg-botanical--br">${botanicalCorner(`bot-${side}-b`)}</div>
+      <div class="cg-botanical cg-botanical--tr">${botanicalCorner(`bot-${side}-c`, true)}</div>
+      <div class="cg-botanical cg-botanical--bl">${botanicalCorner(`bot-${side}-d`, true)}</div>
       ${column('face', T)}
     </div>`;
 }
@@ -992,7 +897,8 @@ export async function mountGate(gateEl, opts = {}) {
   gateEl.classList.add('cgate', 'is-booting');
   await ensureCss(assets.css);
   timing.css = Math.round(now());
-  gateEl.className = 'cgate is-booting' + (reduced ? ' cg-reduced' : '');
+  const flat = device.mobile || device.light;
+  gateEl.className = 'cgate is-booting' + (reduced ? ' cg-reduced' : '') + (flat ? ' cg-flat' : '');
   gateEl.removeAttribute('style');
   gateEl.hidden = false;
   gateEl.removeAttribute('aria-hidden');
@@ -1014,7 +920,7 @@ export async function mountGate(gateEl, opts = {}) {
   // papel
   const styleEl = document.createElement('style');
   document.head.append(styleEl);
-  const paperP = makePaper().then(({ fib, mot }) => {
+  const paperP = (device.mobile ? Promise.resolve({fib:'', mot:''}) : makePaper()).then(({ fib, mot }) => {
     if (fib) styleEl.textContent = `.cgate{--cg-fiber:url("${fib}");--cg-mottle:url("${mot}")}`;
     return [fib, mot];
   }).catch(() => []);
@@ -1048,7 +954,7 @@ export async function mountGate(gateEl, opts = {}) {
 
   await metaP;
   timing.meta = Math.round(now());
-  const player = createBowPlayer({
+  const player = (device.ribbonLite ? createRibbonLite : createBowPlayer)({
     button: els.bow, canvas: els.canvas, assets, meta, dpr, reduced, ts: TS,
     onOwnProgress: p => { S.own = p; },
   });
@@ -1207,8 +1113,8 @@ export async function mountGate(gateEl, opts = {}) {
     // 1) dentro del gesto: la canción (INTEGRATE → song.start())
     try { opts.onOpen?.(!!withMusic); } catch (e) { console.warn('[gate] onOpen', e); }
     // 2) también dentro del gesto: el video del desatado
-    const playing = player.mode === 'gl' || player.mode === 'img' ? player.playOpen() : Promise.resolve(false);
-    sequence(playing);
+    const playing = player.playOpen();
+    sequence(playing).catch(e => { console.warn('[gate] apertura simplificada:', e?.message || e); reveal(); finish(); });
   }
 
   async function sequence(playing) {
@@ -1289,7 +1195,7 @@ export async function mountGate(gateEl, opts = {}) {
   async function untie(playing) {
     const ok = await playing;
     const big = innerWidth > 900;
-    if (ok && player.mode === 'gl') {
+    if (ok && (player.mode === 'gl' || player.mode === 'canvas')) {
       const fired = {};
       await new Promise(res => {
         const t0 = now();
@@ -1373,7 +1279,11 @@ export async function mountGate(gateEl, opts = {}) {
     // anillos girando ocurre a la vista y no detrás del papel (antes empezaba a los 0.2 s y casi todo el vuelo quedaba oculto).
     // Las solapas son animaciones de transform en el compositor: un frame largo del hilo principal no las frena.
     later(reveal, D * .45);
-    const kf = s => [
+    const kf = s => flat ? [
+      { transform: 'translate3d(0,0,0)', easing: 'cubic-bezier(.3,0,.25,1)' },
+      { transform: `translate3d(${s * -6}%,0,0)`, offset: .18, easing: 'cubic-bezier(.3,0,.25,1)' },
+      { transform: `translate3d(${s * -108}%,0,0)` },
+    ] : [
       { transform: 'translate3d(0,0,0) rotateY(0deg)', easing: 'cubic-bezier(.3,0,.3,1)' },
       { transform: `translate3d(${s * -.5}%,0,0) rotateY(${s * -5}deg)`, offset: .16, easing: 'cubic-bezier(.45,.02,.3,1)' },
       { transform: `translate3d(0,0,0) rotateY(${s * -88}deg)` },

@@ -10,6 +10,8 @@
 // ESCENA (decisión n.º 5): el pergamino se abre solo al quedar fija su sección, el scroll guía la secuencia (setScrollProgress,
 // ritmo = max(tiempo, scroll) con tope) y la sección no se suelta hasta que todo está escrito y con los CTA (parchBrake).
 import * as C from './content.js';
+import { device } from './device.js?v=20261104b';
+import { createSong } from './song.js?v=20261104b';
 import { initGrain, initFiber, initDust, initGlow } from './shell-fx.js';
 import { buildParchmentCard, fillA11yCopy, buildIcsHref, initGallery, initCountdown, initMusicButton } from './shell-ui.js';
 import { splitLetters, layoutLetters, initReveals, revealGallery, revealCountdown } from './shell-reveal.js';
@@ -24,14 +26,9 @@ const html = document.documentElement;
 const qs = new URLSearchParams(location.search);
 const STUBS = qs.has('stubs');
 const MOD = STUBS ? '../tests/stubs/' : './';
-// COMPAT-FLUIDEZ (hallazgo 29, decisión n.º 8: «que la animación se vea COMPLETA en todos los celulares»): Android activa
-// prefers-reduced-motion con «Quitar animaciones» (o las escalas de animación en 0, un truco común para «acelerar» teléfonos
-// de gama baja) y la web quitaba toda la magia (lazo y pergamino estáticos, texto de golpe, foto sin flores). Ahora la
-// preferencia del sistema da un modo SUAVE: todo se anima (lazo, anillos, pluma que escribe, flores, escritura dorada,
-// atardecer) pero sin viaje de cámara en el pergamino ni parallax. ?reduced=1 conserva el modo reducido estricto.
-// html.soft-motion lo leen escritura.js, historia3d.js, final3d.js, mapa.js y gate.css (main.js se evalúa antes que ellos).
-const SOFT = !qs.has('reduced') && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const REDUCED = qs.has('reduced');
+// Honor the system motion preference; the botanical border stays fully visible without movement.
+const SOFT = false;
+const REDUCED = qs.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (SOFT) html.classList.add('soft-motion');
 const gsap = window.gsap || null;
 const ScrollTrigger = window.ScrollTrigger || null;
@@ -39,7 +36,7 @@ if (gsap && ScrollTrigger) gsap.registerPlugin(ScrollTrigger); else html.classLi
 if (REDUCED) html.classList.add('reduced');
 // FIX: ya no se crea un contexto WebGL de prueba al cargar (costaba ~0.65 s antes de pintar la puerta). rings3d.js y
 // scroll3d.js detectan solos la falta de WebGL o el render por software (SwiftShader, llvmpipe…) y fallan → imagen/tarjeta HTML.
-const NO_GL = qs.has('nogl');
+const NO_GL = device.light;
 // FIX ronda 1 · ?diag=1: tarjeta de diagnóstico (js/diag.js) para saber por qué un celular concreto no ve la animación completa.
 // Se guardan desde ya los avisos de los módulos ([inv], [final], [historia], …) para mostrarlos con su motivo.
 if (qs.has('diag')) {
@@ -69,7 +66,7 @@ const PRELOADED = [];
   // veces (≈ 4.8 MB de más en datos móviles, y más espera en la puerta). Ahí se piden solo una vez, cuando se usan.
   const ua = navigator.userAgent || '';
   const dupPreload = /iP(hone|ad|od)/.test(ua) || (/Safari\//.test(ua) && !/Chrome|Chromium|Edg|Android/.test(ua)) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (!REDUCED && !dupPreload && typeof WebGLRenderingContext !== 'undefined') { pre('assets/video/lazo_reposo_alpha.mp4'); pre('assets/video/lazo_abrir_alpha.mp4'); }
+  if (!device.ribbonLite && !REDUCED && !dupPreload && typeof WebGLRenderingContext !== 'undefined') { pre('assets/video/lazo_reposo_alpha.mp4'); pre('assets/video/lazo_abrir_alpha.mp4'); }
   if (!NO_GL && HAS_GL2) { pre(THREE_URL, true); if (!dupPreload) { pre('assets/models/anillos/ring-halo.glb'); pre('assets/models/anillos/ring-jonc.glb'); } }
 })();
 
@@ -160,16 +157,16 @@ const targetProgress = () => Math.max(forced, Object.keys(prog).reduce((a, k) =>
 /* ------------------------------------------------------------------------ */
 /* Carga de módulos                                                          */
 /* ------------------------------------------------------------------------ */
-/** Música = la canción del usuario (song.js) con los SFX de music.js sin el Canon; respaldo: el Canon de music.js. */
+/** The song is ready independently of optional synthesized effects and musical analysis. */
 async function loadMusic() {
-  let mm = null;
-  try { mm = await import(MOD + 'music.js'); } catch (e) { console.warn('[inv] SFX no disponibles:', e?.message || e); }
   try {
-    const { createSong } = await import('./song.js');
-    state.music = inv.music = inv.song = await createSong({ music: mm ? sfxOnlyAfterStart(mm.createMusic({ background: false, idle: idleSlot })) : undefined });
+    state.music = inv.music = inv.song = await createSong({ nativeAudio: device.mobile });
+    // The song is available before importing or synthesizing optional effects.
+    import(MOD + 'music.js').then(mm => {
+      state.music?.attachMusic?.(sfxOnlyAfterStart(mm.createMusic({ background: false, idle: idleSlot })));
+    }).catch(e => console.warn('[inv] SFX no disponibles:', e?.message || e));
   } catch (e) {
-    console.warn('[inv] canción no disponible, uso la música sintetizada:', e?.message || e);
-    try { if (mm) state.music = inv.music = mm.createMusic(); } catch {}
+    console.warn('[inv] canción no disponible:', e?.message || e);
   }
   prog.music = 1;
   return state.music;
@@ -198,6 +195,7 @@ function sfxOnlyAfterStart(raw) {
 
 /** Tipografía cinética sincronizada con la canción (opcional: si falla, la página sigue igual). */
 async function loadKinetic(music) {
+  if (device.light) return null;
   try {
     const { mountKinetic } = await import('./kinetic.js');
     kinetic = inv.kinetic = mountKinetic({ song: music || undefined, reducedMotion: REDUCED });
@@ -216,7 +214,7 @@ function startKineticTrack() {
 async function loadRings() {
   if (NO_GL) { ringsFallback(); prog.rings = 1; return null; }
   try {
-    const m = await import(MOD + 'rings3d.js');
+    const m = await import(MOD + 'rings3d.js?v=20261104b');
     const mounting = m.mountRings(els.ringsStage, {
       reducedMotion: REDUCED,
       onProgress: p => { prog.rings = clamp(p) * .98; },
@@ -245,7 +243,7 @@ async function loadScroll() {
   if (NO_GL) { scrollFallback(); state.scrollProg = 1; return null; }
   try {
     await idleSlot();
-    const m = await import(MOD + 'scroll3d.js');
+    const m = await import(MOD + 'scroll3d.js?v=20261104b');
     const mounting = m.mountScroll(els.scrollStage, {
       music: withHaptics(state.music) || undefined,
       reducedMotion: REDUCED, softMotion: SOFT,
@@ -1094,6 +1092,7 @@ let dust = null, musicUI = null, kinetic = null, gate = null, musicP, ringsP, sc
 const PHOTO_CROPS = { 'assets/photos/referencia-4.jpg': [50 / 703, 0, 598 / 703, 782 / 827] };
 
 function boot() {
+  if (html.classList.contains('legacy-entry')) return;
   try { history.scrollRestoration = 'manual'; } catch {}
   $('#main').inert = true; // la puerta es modal
   scrollTo(0, 0);
@@ -1124,10 +1123,10 @@ function boot() {
 
   // Puerta crema (gate.js): el hilo dorado muestra la carga; al tocar el lazo → onOpen (síncrono, arranca la canción)
   // → desatado → onReveal (el envoltorio empieza a abrirse: anillos) → onOpened.
-  gateP = import('./gate.js').then(m => m.mountGate(els.gate, {
+  gateP = import('./gate.js?v=20261104b').then(m => m.mountGate(els.gate, {
     reducedMotion: REDUCED,
     progressSource: () => targetProgress(),
-    maxWait: 9000,
+    maxWait: 3500,
     // PERF: si la puerta no puede leer las máscaras de los destellos en la GPU (WebGL1), las precalcula solo cuando el
     // pergamino 3D ya terminó de montarse (antes ambas tareas competían justo cuando el lazo se podía tocar)
     masksAfter: () => scrollP,
@@ -1148,7 +1147,7 @@ function boot() {
   const fontsP = (document.fonts?.ready || Promise.resolve()).then(() => { prog.fonts = 1; });
   // cada módulo resuelve aunque falle (devuelven null)
   const critical = Promise.all([musicP, ringsP, fontsP]);
-  Promise.race([critical, sleep(8000)]).then(enableEnter);
+  Promise.race([Promise.all([musicP, fontsP]), sleep(2500)]).then(enableEnter);
   // el pergamino no compite con lo crítico: se descarga cuando ya están los anillos (o a los 10 s) y se monta en tiempo ocioso.
   // FIX (red lenta): y además espera a que el lazo se pueda tocar (o a que el invitado entre), hasta 45 s: sus ≈ 8 MB le
   // robaban el ancho de banda a los videos de la puerta (en 3G el lazo tardaba ~59 s; sin esa competencia, ~30 s)

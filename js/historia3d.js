@@ -18,11 +18,12 @@
 // Parámetros: ?nogl=1 · ?reduced=1 · ?sw=1 (permite render por software) · ?historia=off (fuerza la imagen) ·
 //             ?hq=0..3 (fija el nivel de calidad) · ?hp=0..1 (fija el progreso, para capturas)
 import { STORY } from './content.js';
+import { device } from './device.js?v=20261104b';
 
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
 // COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) la foto se forma con flores igual
 const REDUCED = QS.has('reduced') || (matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('soft-motion'));
-const NO_GL = QS.has('nogl') || QS.get('historia') === 'off';
+const NO_GL = device.photoLite || QS.get('historia') === 'off';
 const ALLOW_SW = QS.get('sw') === '1';
 const COARSE = matchMedia('(pointer: coarse)').matches;
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);

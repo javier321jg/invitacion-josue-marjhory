@@ -108,11 +108,11 @@
   position: absolute; top: 0; bottom: 0; left: 0; width: 200%;
   background-color: var(--cg-paper);
   background-image:
-    radial-gradient(ellipse 72% 48% at 50% 36%, rgba(255, 251, 241, .62) 0%, rgba(255, 251, 241, 0) 70%),
-    radial-gradient(ellipse 130% 100% at 50% 46%, rgba(120, 82, 48, 0) 55%, rgba(120, 82, 48, .2) 100%),
-    var(--cg-fiber, none),
-    var(--cg-mottle, none);
-  background-size: 100% 100%, 100% 100%, 384px 384px, 100% 100%;
+    radial-gradient(ellipse at 50% 44%, rgba(255, 252, 242, .89) 15%, rgba(251, 243, 220, .65) 72%, rgba(140, 99, 47, .12) 100%),
+    linear-gradient(90deg, rgba(103, 74, 35, .10), transparent 4%, transparent 96%, rgba(103, 74, 35, .10)),
+    url('../assets/botanical/paper-romano.webp'),
+    var(--cg-fiber, none);
+  background-size: 100% 100%, 100% 100%, 768px 768px, 384px 384px;
   background-repeat: no-repeat, no-repeat, repeat, no-repeat;
 }
 .cg-flap--r .cg-face { left: -100%; }
@@ -252,6 +252,7 @@
 @keyframes cg-nudge { 0%, 100% { rotate: 0deg; } 25% { rotate: -2.2deg; } 60% { rotate: 1.6deg; } }
 /* desatado sin video (respaldo CSS) */
 .cg-bow.is-css-untie .cg-bow__img, .cg-bow.is-css-untie .cg-bow__svg { animation: cg-css-untie 2.1s cubic-bezier(.5, 0, .3, 1) forwards; }
+.cg-bow.is-css-untie .cg-bow__canvas, .cg-bow.is-css-untie .cg-bow__emergency { animation: cg-css-untie 2.1s cubic-bezier(.5, 0, .3, 1) forwards; }
 @keyframes cg-css-untie {
   0% { transform: scale(1); opacity: 1; filter: blur(0); }
   30% { transform: scale(1.06) rotate(-2deg); opacity: 1; filter: blur(0); }

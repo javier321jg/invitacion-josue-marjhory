@@ -29,10 +29,11 @@
 //             ?fk=0..1 (fija el atardecer) · ?fr=0..1 (fija el revelado) · ?fq=0..2 (fija la calidad) ·
 //             ?fgpu=1 (mide el tiempo de GPU en state().gpuMs) · ?fdbg=1..6 (cielo, profundidad, crestas, río, nube, sombra)
 
+import { device } from './device.js?v=20261104b';
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
 // COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) el atardecer se anima igual
 const REDUCED = QS.has('reduced') || (matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('soft-motion'));
-const NO_GL = QS.has('nogl') || QS.get('final') === 'off';
+const NO_GL = device.photoLite || QS.get('final') === 'off';
 const ALLOW_SW = QS.get('sw') === '1';
 const COARSE = matchMedia('(pointer: coarse)').matches;
 const FIX_K = QS.has('fk') ? +QS.get('fk') : null;

@@ -1,0 +1,112 @@
+/* Roman invitation: worn gilding, vellum and a living laurel/rose border. */
+/* WebKit can drop the whole front face when SVG images sit in a preserve-3d/backface layer. */
+.cgate.cg-flat .cg-flap { transform-style: flat; }
+.cgate.cg-flat .cg-flap__back { display: none; }
+.cgate.cg-flat .cg-flap__in { -webkit-backface-visibility: visible; backface-visibility: visible; }
+.cg-roman-frame {
+  position: absolute; inset: max(19px, 2.4vw); pointer-events: none;
+  border: 1px solid rgba(145, 106, 51, .48);
+  outline: 1px solid rgba(145, 106, 51, .23); outline-offset: 5px;
+  box-shadow: inset 0 0 0 3px rgba(255, 249, 226, .48), inset 0 0 30px rgba(145, 106, 51, .05);
+}
+.cg-roman-frame::before, .cg-roman-frame::after {
+  content: ''; position: absolute; width: 72px; height: 22px; left: calc(50% - 36px);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 22'%3E%3Cg fill='none' stroke='%23ab864b' stroke-width='.9'%3E%3Cpath d='M0 11h18l8-7 10 7 10-7 8 7h18M18 11l8 7 10-7 10 7 8-7M29 11l7-5 7 5-7 5z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+}
+.cg-roman-frame::before { top: -11px; }
+.cg-roman-frame::after { bottom: -11px; }
+.cg-roman-frame i { position: absolute; width: 32px; height: 32px; border: 1px solid #b4955d; }
+.cg-roman-frame i::after { content: ''; position: absolute; inset: 5px; border: 1px solid #b4955d; }
+.cg-roman-frame i:nth-child(1) { top: -6px; left: -6px; }
+.cg-roman-frame i:nth-child(2) { top: -6px; right: -6px; }
+.cg-roman-frame i:nth-child(3) { bottom: -6px; right: -6px; }
+.cg-roman-frame i:nth-child(4) { bottom: -6px; left: -6px; }
+.cg-botanical { position: absolute; width: clamp(210px, 27vw, 380px); pointer-events: none; }
+.cg-botanical svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cg-botanical--tl { left: -14px; top: -12px; }
+.cg-botanical--br { right: -14px; bottom: -12px; transform: rotate(180deg); }
+.cg-botanical--tr { right: -14px; top: -12px; transform: scaleX(-1); width: clamp(140px, 16vw, 230px); opacity: .83; }
+.cg-botanical--bl { left: -14px; bottom: -12px; transform: scaleY(-1); width: clamp(140px, 16vw, 230px); opacity: .83; }
+.cg-vine { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cg-vine-grow 3.8s cubic-bezier(.3,.1,.2,1) .15s both; }
+.cg-vine--gold { animation-delay: .5s; animation-duration: 4.6s; }
+.cg-petal { transform: scale(.03) rotate(-17deg); opacity: 0; animation: cg-petal-unfold 1.7s cubic-bezier(.2,.6,.25,1) both; }
+.cg-leaf { transform: scale(.02) rotate(-28deg); opacity: 0; animation: cg-leaf-unfurl 1.6s cubic-bezier(.16,.8,.3,1) both; }
+.cg-flower-heart { opacity: 0; animation: cg-fade .9s ease both; }
+.cg-rose-finish { opacity: 0; animation: cg-rose-settle 1.1s ease both; }
+.cg-growing-petals { animation: cg-petals-settle 1s ease both; }
+.cg-spine { position: absolute; width: 70px; top: 0; bottom: 0; pointer-events: none; opacity: .65; }
+.cg-spine svg { display: block; width: 100%; height: 100%; }
+.cg-spine--l { left: 3px; }
+.cg-spine--r { right: 3px; transform: rotate(180deg); }
+.cg-vine--climb { animation-delay: 1s; animation-duration: 4s; }
+@keyframes cg-rose-settle { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: scale(1); } }
+@keyframes cg-petals-settle { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cg-vine-grow { to { stroke-dashoffset: 0; } }
+@keyframes cg-petal-unfold {
+  0% { transform: scale(.03) rotate(-17deg); opacity: 0; }
+  28% { opacity: 1; }
+  75% { transform: scale(1.025) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes cg-leaf-unfurl {
+  0% { transform: scale(.02) rotate(-28deg); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+/* A still ribbon at rest; all frames are drawn only while it unties. */
+.cg-bow.is-atlas:not(.is-ribbon-pull):not(.is-css-untie) .cg-bow__canvas { animation: cg-breathe 4s ease-in-out 1s 2; transform-origin: 50% 42%; }
+.is-untie .cg-bow.is-atlas .cg-bow__canvas { animation: none !important; }
+.cg-bow.is-ribbon-pull .cg-bow__canvas { transform: scale(1.035) rotate(-1.5deg); transition: transform .25s; }
+.cg-bow__emergency { position: absolute; left: 28%; top: 29%; width: 44%; height: 32%; }
+.cg-bow__emergency i { position: absolute; top: 0; width: 58%; height: 58%; border: 1px solid #d2a26c; background: linear-gradient(140deg,#b84e51,#6d1f29 65%,#c47373); border-radius: 10% 75% 15% 75%; transform: rotate(15deg); box-shadow: 0 5px 12px #4b211644; }
+.cg-bow__emergency i:nth-child(2) { right: 0; transform: scaleX(-1) rotate(15deg); }
+.cg-bow__emergency b { position: absolute; left: 40%; top: 22%; width: 23%; height: 35%; border-radius: 25%; background: linear-gradient(90deg,#7e2930,#c27370,#75202c); }
+.cgate.cg-reduced .cg-vine { stroke-dashoffset: 0; }
+.cgate.cg-reduced .cg-petal, .cgate.cg-reduced .cg-leaf, .cgate.cg-reduced .cg-flower-heart { transform: none; opacity: 1; }
+.cgate.cg-reduced .cg-rose-finish { opacity: 1; transform: none; }
+.cgate.cg-reduced .cg-growing-petals { opacity: 0; }
+.cgate .cg-skip { text-transform: none; letter-spacing: .09em; text-indent: .09em; color: #5a4128; font-size: 12px; font-weight: 600; }
+.cgate .cg-kicker { color: #65472d; font-weight: 600; }
+.cgate .cg-hint { color: #634a30; }
+.cgate .cg-names { filter: drop-shadow(0 1px 0 #fff7df) drop-shadow(0 1px 1px #77552055); }
+.cgate .cg-names { font-size: min(12.7vw, 10.7vh, 104px); font-size: min(12.7vw, 10.7svh, 104px); }
+.music__label { display: none; }
+.cg-legacy { height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; background: #f5ead2 url('../assets/botanical/paper-romano.webp'); text-align: center; }
+.cg-legacy h1 { font: 48px/1.2 'Great Vibes',Georgia,serif; margin: 15px 0; }
+.cg-legacy img { width: 230px; max-width: 80vw; }
+.cg-legacy button { background: #fff9eb; color: #624924; border: 1px solid #b4955d; padding: 13px 22px; min-height: 44px; margin: 7px; font: 16px Georgia,serif; cursor: pointer; }
+.legacy-entry { overflow: auto !important; }
+.legacy-entry .hero [data-hero] { opacity: 1 !important; }
+.legacy-entry #pergamino { display: none; }
+.legacy-audio { position: fixed; z-index: 101; left: 10px; bottom: 10px; max-width: calc(100% - 20px); }
+.legacy-letter { padding: 70px 24px; margin: 0 auto; max-width: 640px; color: #4a3426; text-align: center; font: 22px/1.6 Georgia,serif; }
+.legacy-letter h1 { font: 56px/1.2 'Great Vibes',Georgia,serif; }
+.music[aria-pressed="false"] .music__label { display: block; position: absolute; right: calc(100% + 9px); white-space: nowrap; font: 500 11px/1.3 var(--f-sans); color: #624924; background: #fff8e9; padding: 9px 12px; border: 1px solid #c7ab7b; border-radius: 20px; }
+/* Baked paper also reaches the HTML letter on older phones. */
+.pcard__paper { background-image: linear-gradient(#fff7e7c9,#fff7e7c9),url('../assets/botanical/paper-romano.webp'); background-size: auto,440px; }
+.quality-lite .stage--rings .stage__img { animation: rings-lit-arrival 3.5s cubic-bezier(.16,1,.3,1) both; }
+.is-gated.quality-lite .stage--rings .stage__img { animation-play-state: paused; }
+@keyframes rings-lit-arrival { from { transform: scale(.84) rotate(-5deg); } to { transform: scale(1) rotate(0); } }
+@media (max-width: 600px) {
+  .cg-botanical--tl, .cg-botanical--br { width: 205px; }
+  .cg-botanical--tr, .cg-botanical--bl { width: 110px; opacity: .7; }
+  .cg-roman-frame { inset: 19px; }
+  .cg-roman-frame i { width: 23px; height: 23px; }
+  .cg-kicker { font-size: 10px; letter-spacing: .29em; text-indent: .29em; }
+}
+@media (max-width: 360px), (max-height: 700px) {
+  .cg-botanical--tl, .cg-botanical--br { width: 166px; }
+  .cg-botanical--tr, .cg-botanical--bl { width: 90px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .cg-botanical--tl, .cg-botanical--br { width: 160px; }
+  .cg-botanical--tr, .cg-botanical--bl { display: none; }
+  .cg-roman-frame { inset: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-rose-finish { animation: none; opacity: 1; transform: none; }
+  .cg-growing-petals { animation: none; opacity: 0; }
+  .cg-vine { animation: none; stroke-dashoffset: 0; }
+  .cg-petal, .cg-leaf, .cg-flower-heart { animation: none; transform: none; opacity: 1; }
+  .quality-lite .stage--rings .stage__img { animation: none; }
+}

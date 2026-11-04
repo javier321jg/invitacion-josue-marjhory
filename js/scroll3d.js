@@ -583,7 +583,7 @@ export async function mountScroll(container, opts = {}) {
   const onOpenedCb = typeof opts.onOpened === 'function' ? opts.onOpened : () => {};
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const mobile = coarse || Math.min(innerWidth, innerHeight) < 600;
-  const DPR_CAP = opts.dprMax || (mobile ? 1.5 : 1.75);
+  const DPR_CAP = opts.dprMax || (mobile ? 1.35 : 1.75);
   const TL = reduced ? TL_REDUCED : TL_FULL;
   let progress = 0;
   const marks = { t0: Math.round(performance.now()) }; // PERF (depuración): ms desde el inicio del montaje en cada etapa

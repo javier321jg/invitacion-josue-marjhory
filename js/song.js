@@ -88,7 +88,7 @@ export async function createSong(opts = {}) {
   const src = resolve(opts.src, '../assets/audio/cancion.mp3');
   const analysisUrl = resolve(opts.analysisUrl, '../assets/audio/cancion-analisis.json');
   const lrcUrl = opts.lrcUrl === null ? null : resolve(opts.lrcUrl, '../assets/audio/letra.lrc');
-  const music = opts.music || null;
+  let music = opts.music || null;
   const VOLUME = clamp01(opts.volume ?? 0.9);
   const FADE_IN = opts.fadeIn ?? 2.5;
   const LOOP_FADE_OUT = 3.2, LOOP_FADE_IN = 2.6, MUTE_OUT = 0.7, UNMUTE_IN = 1.2;
@@ -98,6 +98,7 @@ export async function createSong(opts = {}) {
   const STALE = 0.22;                            // pulsos más viejos que esto (tirón, pestaña oculta) se saltan sin disparar
 
   // ---------- elemento de audio (empieza a bajar ya, en streaming) ----------
+  const nativeAudio = opts.nativeAudio ?? /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const audio = new Audio();
   // FIX: antes del toque solo los metadatos (duración): con preload='auto' se bajaban ~2.3 MB que competían con la puerta y
   // los anillos (y se perdían si el invitado entraba sin música). start() pasa a 'auto'; con HTTP Range arranca en < 1 s
@@ -105,6 +106,10 @@ export async function createSong(opts = {}) {
   audio.preload = 'metadata';
   audio.loop = false;
   audio.setAttribute('playsinline', '');
+  audio.setAttribute('webkit-playsinline', '');
+  audio.setAttribute('aria-hidden', 'true');
+  audio.style.display = 'none';
+  doc?.body?.append(audio);
   audio.src = src;
   try { audio.load(); } catch {}
 
@@ -152,11 +157,10 @@ export async function createSong(opts = {}) {
 
   const analysisP = fetchWithTimeout(analysisUrl, 15000, 'json');
   const lrcP = lrcUrl ? fetchWithTimeout(lrcUrl, 8000, 'text') : Promise.resolve(null);
-  const settle = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(undefined), ms))]);
-  const [a0, l0] = await Promise.all([settle(analysisP, 6000), settle(lrcP, 4000)]);
-  if (a0) setAnalysis(a0); else analysisP.then(a => a && !analysis && setAnalysis(a));
   const applyLrc = txt => { if (typeof txt === 'string') { lyrics = parseLRC(txt, songDuration()); needResync = true; } };
-  if (l0 !== undefined) applyLrc(l0); else lrcP.then(applyLrc);
+  // Analysis never holds the audio API hostage on a slow connection. The first tap can play immediately.
+  analysisP.then(a => { if (a && !disposed) setAnalysis(a); });
+  lrcP.then(txt => { if (!disposed) applyLrc(txt); });
 
   function songDuration() {
     const d = audio.duration;
@@ -180,6 +184,7 @@ export async function createSong(opts = {}) {
   const gLoop = makeGain('loop', 1), gMaster = makeGain('master', 0), gDuck = makeGain('duck', 1);
 
   function ensureGraph() {
+    if (nativeAudio) { graphFailed = true; return null; }
     if (ctx || graphFailed) return ctx;
     const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
     if (!AC) { graphFailed = true; return null; }
@@ -523,7 +528,13 @@ export async function createSong(opts = {}) {
 
   const api = {
     analyser: null,
-    get playing() { return started && !muted && wantPlay && !audio.paused; },
+    attachMusic(m) {
+      music = m;
+      if (started && wantPlay && !muted) {
+        try { const p = music?.start?.({ context: ctx || undefined }); p?.catch?.(() => {}); } catch {}
+      }
+    },
+    get playing() { return started && !muted && wantPlay && !audio.paused && (!ctx || ctx.state === 'running'); },
     get currentTime() { return heard; },
     get duration() { return songDuration(); },
     get latency() { return latency(); },
@@ -551,11 +562,12 @@ export async function createSong(opts = {}) {
       try { if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
       try { audio.preload = 'auto'; } catch {}
       ensureGraph();
-      startSfx();
-      fade(gMaster, 0, 0);
+      // iOS media playback goes directly to the audio output. A suspended SFX context cannot silence it.
+      fade(gMaster, nativeAudio ? VOLUME : 0, 0);
       const resumeP = ctx && ctx.state !== 'running' ? ctx.resume().catch(() => {}) : Promise.resolve();
       let playP;
       try { playP = audio.play(); } catch (e) { playP = Promise.reject(e); }
+      startSfx();
       needResync = true;
       ensureLoop();
       return Promise.resolve(playP).then(async () => {
@@ -656,6 +668,7 @@ export async function createSong(opts = {}) {
       doc?.removeEventListener('visibilitychange', onVisibility);
       Object.values(subs).forEach(s => s.clear());
       try { audio.pause(); audio.removeAttribute('src'); audio.load(); } catch {}
+      audio.remove();
       try { srcNode?.disconnect(); analyser?.disconnect(); } catch {}
       try { ctx?.close(); } catch {}
       ctx = null; analyser = null; api.analyser = null;

@@ -59,7 +59,7 @@ function detectTier() {
 }
 const TIERS = {
   high: { dprMax: 1.75, dprMin: 1.0, msaa: 4, dust: 1500, sparks: 720, bloom: true, env: 512, gemFull: true, targetFps: 50 },
-  mid: { dprMax: 1.5, dprMin: 0.85, msaa: 4, dust: 700, sparks: 360, bloom: true, env: 256, gemFull: true, targetFps: 40 },
+  mid: { dprMax: 1.35, dprMin: 0.85, msaa: 0, dust: 450, sparks: 240, bloom: true, env: 256, gemFull: true, targetFps: 40 },
   low: { dprMax: 1.0, dprMin: 0.75, msaa: 2, dust: 380, sparks: 200, bloom: false, env: 256, gemFull: false, targetFps: 32 },
 };
 
