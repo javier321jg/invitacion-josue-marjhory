@@ -24,9 +24,9 @@
 import { COUPLE, EVENT } from './content.js';
 
 const rel = p => new URL(p, import.meta.url).href;
-import { device } from './device.js?v=20261104b';
-import { createRibbonLite } from './ribbon-lite.js?v=20261104b';
-import { botanicalCorner, botanicalSpines } from './botanical.js?v=20261104b';
+import { device } from './device.js?v=20261105a';
+import { createRibbonLite } from './ribbon-lite.js?v=20261105a';
+import { botanicalSpines, floraCorner, floraFall, floraReady, splitFlora } from './botanical.js?v=20261105a';
 
 export const GATE_ASSETS = {
   reposo: rel('../assets/video/lazo_reposo_alpha.mp4'),
@@ -88,10 +88,7 @@ function face(side, T) {
   return `<div class="cg-face cg-paper">
       <div class="cg-roman-frame"><i></i><i></i><i></i><i></i></div>
       ${botanicalSpines()}
-      <div class="cg-botanical cg-botanical--tl">${botanicalCorner(`bot-${side}-a`)}</div>
-      <div class="cg-botanical cg-botanical--br">${botanicalCorner(`bot-${side}-b`)}</div>
-      <div class="cg-botanical cg-botanical--tr">${botanicalCorner(`bot-${side}-c`, true)}</div>
-      <div class="cg-botanical cg-botanical--bl">${botanicalCorner(`bot-${side}-d`, true)}</div>
+      ${floraCorner('tl')}${floraCorner('br')}${floraCorner('tr')}${floraCorner('bl')}
       ${column('face', T)}
     </div>`;
 }
@@ -105,6 +102,7 @@ function template(T) {
     <p class="cg-sr" id="gate-desc">${esc(T.date)}</p>
     <div class="cg-under" aria-hidden="true"><i class="cg-under__shade"></i><i class="cg-under__light"></i></div>
     <div class="cg-stage" aria-hidden="true">${flap('l')}${flap('r')}</div>
+    ${floraFall(device.light ? 6 : innerWidth < 700 ? 9 : 13)}
     <div class="cg-ui">${column('ui', T)}</div>
     <canvas class="cg-sparks" aria-hidden="true"></canvas>`;
 }
@@ -931,7 +929,14 @@ export async function mountGate(gateEl, opts = {}) {
   const fontsP = document.fonts?.load
     ? Promise.all(['1em "Great Vibes"', 'italic 500 1em "Cormorant Garamond"', '500 1em Montserrat'].map(f => document.fonts.load(f).catch(() => {})))
     : Promise.resolve();
-  Promise.race([fontsP, sleep(1600)]).then(() => requestAnimationFrame(() => { timing.fonts = Math.round(now()); gateEl.classList.add('is-in'); }));
+  // (y el jardín: sus rosas, ≈ 55 KB, ya descargadas para que la floración no empiece con huecos)
+  try { splitFlora(gateEl); } catch {}
+  Promise.race([Promise.all([fontsP, floraReady]), sleep(1600)]).then(() => requestAnimationFrame(() => {
+    timing.fonts = Math.round(now()); gateEl.classList.add('is-in');
+    // PERF: terminada la floración (~6.5 s) el jardín queda como dibujo fijo; siguen solo la brisa, una rosa que respira,
+    // las chispas y los pétalos que caen (menos animaciones vivas → menos trabajo por cuadro en teléfonos modestos)
+    setTimeout(() => { if (!S.opening && !S.disposed) gateEl.classList.add('fl-settled'); }, 6800);
+  }));
 
   // color del navegador (barra superior en móvil) a juego con el papel
   const themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -958,6 +963,9 @@ export async function mountGate(gateEl, opts = {}) {
     button: els.bow, canvas: els.canvas, assets, meta, dpr, reduced, ts: TS,
     onOwnProgress: p => { S.own = p; },
   });
+  // 05/11: con el lazo ligero (móvil) no se habilita el toque hasta tener la animación real del desatado (máx. 7 s)
+  S.atlasOk = !player.atlasReady;
+  player.atlasReady?.then(() => { S.atlasOk = true; });
   player.ready.then(mode => {
     S.ownReady = true; S.own = 1;
     player.onFirstFrame(() => { gateEl.classList.add('is-bow'); setupBand(); });
@@ -1024,7 +1032,8 @@ export async function mountGate(gateEl, opts = {}) {
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => layoutBand()) : null;
   ro?.observe(els.slot);
-  const onResize = () => layoutBand();
+  let splitT = 0;
+  const onResize = () => { layoutBand(); clearTimeout(splitT); splitT = setTimeout(() => { try { if (!S.opening) splitFlora(gateEl); } catch {} }, 150); };
   addEventListener('resize', onResize, { passive: true });
 
   // progreso → hilo dorado
@@ -1046,7 +1055,7 @@ export async function mountGate(gateEl, opts = {}) {
     // muchos segundos en llenarse y el lazo no se podía tocar aunque todo ya estuviera cargado.
     const t = now(), dt = Math.min(.25, Math.max(0, (t - tickT) / 1000)); tickT = t;
     const ext = readExt();
-    const target = clamp(ext * .78 + S.own * .22) * (S.ownReady ? 1 : .985);
+    const target = clamp(ext * .78 + S.own * .22) * (S.ownReady && S.atlasOk ? 1 : .985);
     S.shown += (target - S.shown) * (reduced ? 1 : 1 - Math.exp(-dt * 4.4));
     if (Math.abs(target - S.shown) < .0015) S.shown = target;
     const p = S.shown;
@@ -1056,7 +1065,7 @@ export async function mountGate(gateEl, opts = {}) {
       els.bead.setAttribute('transform', `translate(${pt.x.toFixed(2)} ${pt.y.toFixed(2)})`);
     }
     els.thread.setAttribute('aria-valuenow', String(Math.round(p * 100)));
-    if (!S.ready && ext >= 1 && S.ownReady && p > .995) becomeReady();
+    if (!S.ready && ext >= 1 && S.ownReady && S.atlasOk && p > .995) becomeReady();
     if (!S.ready) S.raf = requestAnimationFrame(progressTick);
   }
   S.raf = requestAnimationFrame(progressTick);

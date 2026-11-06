@@ -64,4 +64,5 @@ export const FINALE = {
 // Avisos de la interfaz
 export const UI = {
   seguir: 'Desliza para continuar', // aparece si el invitado se detiene con el pergamino ya escrito (decisión n.º 9.2)
+  espera: 'Un momento…',            // js/pace.js: la animación aún no termina y el scroll la espera
 };

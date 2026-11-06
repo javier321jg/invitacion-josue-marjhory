@@ -29,7 +29,7 @@
 //             ?fk=0..1 (fija el atardecer) · ?fr=0..1 (fija el revelado) · ?fq=0..2 (fija la calidad) ·
 //             ?fgpu=1 (mide el tiempo de GPU en state().gpuMs) · ?fdbg=1..6 (cielo, profundidad, crestas, río, nube, sombra)
 
-import { device } from './device.js?v=20261104b';
+import { device } from './device.js?v=20261105a';
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
 // COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) el atardecer se anima igual
 const REDUCED = QS.has('reduced') || (matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('soft-motion'));
@@ -390,7 +390,7 @@ function loadImage(src) {
   });
 }
 
-function publish(api) { try { (window.__inv ||= {}).final = api; } catch { /* sin ganchos */ } }
+function publish(api) { try { (window.__inv = window.__inv || {}).final = api; } catch { /* sin ganchos */ } }
 
 export async function mountFinal(section, opts = {}) {
   const reduced = opts.reducedMotion ?? REDUCED;
@@ -399,7 +399,7 @@ export async function mountFinal(section, opts = {}) {
   const img = section.querySelector('.finale__photo');
   let resolveReady;
   const api = {
-    mode: 'init', fps: 0, quality: 0, k: 0, reveal: 0,
+    mode: 'init', fps: 0, quality: 0, k: 0, reveal: 0, starShown: false,
     ready: new Promise(r => { resolveReady = r; }),
     replay() {}, dispose() {},
     debug: { setK() {}, setReveal() {}, time: () => 0, state: () => ({}) },
@@ -418,7 +418,7 @@ export async function mountFinal(section, opts = {}) {
   if (meta?.colores?.cieloArriba) section.style.setProperty('--fin-sky-top', meta.colores.cieloArriba);
 
   // ---------- encuadre compartido (la <img> de respaldo usa el mismo que el WebGL)
-  let vw = 0, vh = 0, secTop = 0, secH = 0;
+  let vw = 0, vh = 0, secTop = 0, secH = 0, night = null;
   const measure = () => {
     const r = bg.getBoundingClientRect();
     vw = Math.max(1, Math.round(r.width)); vh = Math.max(1, Math.round(r.height));
@@ -427,6 +427,7 @@ export async function mountFinal(section, opts = {}) {
     if (img) {
       const R = photoRect(vw, vh, aspect, focusX);
       img.style.cssText = `left:${R.x.toFixed(1)}px;top:${R.y.toFixed(1)}px;width:${R.w.toFixed(1)}px;height:${R.h.toFixed(1)}px`;
+      if (night) night.style.cssText = img.style.cssText;
       section.style.setProperty('--fin-photo-top', Math.max(0, R.y).toFixed(1) + 'px');
       section.style.setProperty('--fin-hz', (R.y + (meta?.horizonte ?? 0.35) * R.h).toFixed(1) + 'px');
     }
@@ -438,6 +439,33 @@ export async function mountFinal(section, opts = {}) {
     if (why) console.info('[final] imagen:', why);
     section.classList.add('is-img'); section.classList.remove('is-gl');
     api.mode = 'img';
+    // 05/11: también sin WebGL el atardecer enciende las luces del pueblo, salen estrellas y cruza una estrella fugaz
+    if (!night && stage && meta && !reduced) {
+      night = document.createElement('div');
+      night.className = 'finale__night'; night.setAttribute('aria-hidden', 'true');
+      const lights = (meta.luces || []).filter((_, i) => i % (innerWidth < 700 ? 2 : 1) === 0).slice(0, 60);
+      let h = '';
+      for (const L of lights) h += `<i class="fn-light" style="left:${(L.x * 100).toFixed(2)}%;top:${(L.y * 100).toFixed(2)}%;--o:${(+L.o || 0).toFixed(3)};--s:${(+L.s || 1).toFixed(2)};--w:${(2.2 + (+L.w || 0) * 2.6).toFixed(2)}s;--p:${(-(+L.p || 0)).toFixed(2)}s"></i>`;
+      night.innerHTML = h;
+      (stage.querySelector('.finale__tint') || img)?.after(night);
+      const sky = document.createElement('div');
+      sky.className = 'finale__sky-fx'; sky.setAttribute('aria-hidden', 'true');
+      let sh = '';
+      for (let i = 0; i < 26; i++) {
+        const x = (Math.sin(i * 12.9898) * 43758.5453 % 1 + 1) % 1, y = (Math.sin(i * 78.233) * 12543.2 % 1 + 1) % 1;
+        sh += `<i class="fn-star" style="left:${(x * 100).toFixed(1)}%;top:${(y * 34).toFixed(1)}%;--d:${(1.8 + (i % 5) * .7).toFixed(1)}s;--o:${(i % 7 / 7).toFixed(2)}"></i>`;
+      }
+      sky.innerHTML = sh + '<i class="fn-shoot"></i>';
+      stage.append(sky);
+      measure();
+    }
+    const shoot = section.querySelector('.fn-shoot');
+    let shootT = 0;
+    const fire = () => {
+      if (!shoot) { api.starShown = true; return; }
+      shoot.classList.remove('is-on'); void shoot.offsetWidth; shoot.classList.add('is-on');
+      shootT = setTimeout(() => { api.starShown = true; shoot.classList.remove('is-on'); shootT = setTimeout(fire, 8000 + Math.random() * 6000); }, 1500);
+    };
     let t0 = 0, raf = 0;
     const tick = (now) => {
       raf = 0;
@@ -446,11 +474,13 @@ export async function mountFinal(section, opts = {}) {
       section.style.setProperty('--fk', k.toFixed(3));
       api.k = k;
       if (k < 1) raf = requestAnimationFrame(tick);
+      else if (reduced) api.starShown = true;
+      else if (!shootT) shootT = setTimeout(fire, 900);
     };
     const io = new IntersectionObserver(es => {
       for (const e of es) {
         if (e.isIntersecting && e.intersectionRatio > 0.35 && !t0 && !raf) raf = requestAnimationFrame(tick);
-        if (!e.isIntersecting && e.boundingClientRect.top > 0) { if (raf) cancelAnimationFrame(raf); raf = 0; t0 = 0; section.style.setProperty('--fk', '0'); }
+        if (!e.isIntersecting && e.boundingClientRect.top > 0) { if (raf) cancelAnimationFrame(raf); raf = 0; t0 = 0; clearTimeout(shootT); shootT = 0; section.style.setProperty('--fk', '0'); }
       }
     }, { threshold: [0, 0.35] });
     io.observe(section);
@@ -577,7 +607,7 @@ export async function mountFinal(section, opts = {}) {
   stage.append(canvas);
 
   // ---------- calidad y tamaño
-  let tier = FIX_Q != null ? clamp(Math.round(FIX_Q), 0, TIERS.length - 1) : TIERS.length - 1;
+  let tier = FIX_Q != null ? clamp(Math.round(FIX_Q), 0, TIERS.length - 1) : device.low ? 0 : TIERS.length - 1;
   let dpr = 1;
   const resize = () => {
     measure();
@@ -694,11 +724,12 @@ export async function mountFinal(section, opts = {}) {
     // atardecer: primero un instante de día; luego tiempo o scroll (lo que vaya más adelante), velocidad acotada
     if (st.fixK != null) st.k = st.fixK;
     else {
-      if (e > 0.8 && st.sunT0 < 0) st.sunT0 = t + (reduced ? 0 : 1.3);
-      const timeK = st.sunT0 >= 0 ? clamp((t - st.sunT0) / (reduced ? 1.2 : 9.5)) : 0;
+      // 05/11: el atardecer llega algo antes (0.7 s de día + 7 s) para que la estrella fugaz se vea sin esperar tanto
+      if (e > 0.8 && st.sunT0 < 0) st.sunT0 = t + (reduced ? 0 : 0.7);
+      const timeK = st.sunT0 >= 0 ? clamp((t - st.sunT0) / (reduced ? 1.2 : 7)) : 0;
       const scrollK = clamp(s / 0.72);
       const target = Math.max(timeK, scrollK, st.k);
-      const rate = reduced ? 0.9 : 0.24;
+      const rate = reduced ? 0.9 : 0.3;
       st.k = Math.min(target, st.k + rate * dt);
     }
     const k = st.k;
@@ -729,8 +760,9 @@ export async function mountFinal(section, opts = {}) {
     U.uStars.value = sstep(0.8, 1.0, k);
     // estrella fugaz: la primera ~2 s después de terminar el atardecer; luego, muy de vez en cuando
     U.uShootA.value = 0;
+    if (reduced && k >= 0.999) api.starShown = true;
     if (!reduced && st.fixK == null && k >= 0.999) {
-      if (st.shootAt < 0) st.shootAt = t + 2.2;
+      if (st.shootAt < 0) st.shootAt = t + 1.0;
       const p = (t - st.shootAt) / 1.25;
       if (p >= 0 && p <= 1) {
         // de derecha a izquierda y hacia abajo, por cielo libre (nunca detrás del monograma, la frase ni la cuenta regresiva):
@@ -744,7 +776,7 @@ export async function mountFinal(section, opts = {}) {
         const L = Math.hypot(bx - ax, by - ay) || 1;
         U.uShoot.value.set((hx - R.x) / R.w, (hy - R.y) / R.h, ((ax - bx) / L * tl) / R.w, ((ay - by) / L * tl) / R.h);
         U.uShootA.value = Math.pow(Math.sin(Math.PI * p), 0.7) * 1.4;
-      } else if (p > 1) st.shootAt = t + 16 + ((t * 7.31) % 1) * 12;
+      } else if (p > 1) { st.shootAt = t + 9 + ((t * 7.31) % 1) * 7; api.starShown = true; }
     }
     if (!reduced) hookBeat();
     st.beat *= Math.exp(-dt * 3.2);

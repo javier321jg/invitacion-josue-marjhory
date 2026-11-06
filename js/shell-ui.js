@@ -25,7 +25,7 @@ export function buildParchmentCard(T, { closed = false, reader = false, titleId 
   const [d0, d1] = T.details;
   // FIX ronda 1 (idea): en la tarjeta de respaldo (teléfonos sin WebGL 2 / GPU débil) los nombres se escriben a mano en oro
   // con js/escritura.js (trazos horneados en assets/escritura/tarjeta-*.json); main.js los dispara al abrir la tarjeta
-  const esw = id => (escritura ? ` data-escritura="${id}" data-escritura-modo="manual"` : '');
+  const esw = id => (escritura ? ` data-escritura="${id}" data-escritura-modo="manual" data-escritura-pluma` : '');
   el.innerHTML = `
     <div class="pcard__rod pcard__rod--top" aria-hidden="true"></div>
     <div class="pcard__wrap"><div class="pcard__clip">

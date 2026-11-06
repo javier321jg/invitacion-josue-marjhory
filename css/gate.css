@@ -22,7 +22,7 @@
   --f-serif: 'Cormorant Garamond', 'Cormorant', Garamond, 'Times New Roman', serif;
   --f-sans: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
 
-  position: fixed; inset: 0; z-index: 100; overflow: hidden;
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 100; overflow: hidden;
   color: var(--cg-choc); background: transparent;
   -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: contain;
   -webkit-user-select: none; user-select: none; color-scheme: light;
@@ -39,9 +39,9 @@
 }
 
 /* ---------- Bajo las solapas: luz y sombra que caen sobre el hero al abrir ---------- */
-.cg-under { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.cg-under { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; opacity: 0; }
 .cg-under__shade {
-  position: absolute; inset: 0;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
   background: linear-gradient(90deg, rgba(8, 5, 3, .78) 0%, rgba(8, 5, 3, .28) 26%, transparent 46%, transparent 54%, rgba(8, 5, 3, .28) 74%, rgba(8, 5, 3, .78) 100%);
 }
 .cg-under__light {
@@ -52,7 +52,7 @@
 
 /* ---------- Las dos solapas del envoltorio (gatefold) ---------- */
 .cg-stage {
-  position: absolute; inset: 0; perspective: 1600px; perspective-origin: 50% 50%;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; perspective: 1600px; perspective-origin: 50% 50%;
   background: var(--cg-paper);           /* tapa la costura subpíxel en reposo */
 }
 .cgate.is-opening .cg-stage { background: transparent; }
@@ -63,21 +63,21 @@
 .cg-flap--l { left: 0; transform-origin: 0 50%; }
 .cg-flap--r { right: 0; transform-origin: 100% 50%; }
 .cg-flap__in {
-  position: absolute; inset: 0; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden;
 }
 .cg-flap__back {
-  position: absolute; inset: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden;
   transform: rotateY(180deg);
   background-color: #e4d5b8; background-image: var(--cg-fiber, none); background-size: 384px 384px;
 }
 .cg-flap__back::after {
-  content: ''; position: absolute; inset: 0;
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0;
   background: linear-gradient(90deg, rgba(74, 52, 38, .35), rgba(74, 52, 38, .05) 60%, rgba(255, 245, 225, .2));
 }
 .cg-flap--r .cg-flap__back::after { transform: scaleX(-1); }
 /* sombreado según el giro (lo anima gate.js) */
 .cg-flap__shade {
-  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; opacity: 0;
   background: linear-gradient(90deg, rgba(58, 36, 22, .06) 0%, rgba(58, 36, 22, .42) 100%);
 }
 .cg-flap--r .cg-flap__shade { background: linear-gradient(270deg, rgba(58, 36, 22, .06) 0%, rgba(58, 36, 22, .42) 100%); }
@@ -149,7 +149,7 @@
 
 /* ---------- Columna (misma maqueta en las caras y en la capa interactiva) ---------- */
 .cg-col {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   text-align: center;
   padding: calc(clamp(28px, 7vh, 72px) + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px));
   padding: calc(clamp(28px, 7svh, 72px) + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px));
@@ -202,29 +202,29 @@
 .cg-band--l { left: 0; transform-origin: 0 50%; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent); }
 .cg-band--r { right: 0; transform-origin: 100% 50%; -webkit-mask-image: linear-gradient(270deg, #000 calc(100% - var(--fade)), transparent); mask-image: linear-gradient(270deg, #000 calc(100% - var(--fade)), transparent); }
 .cg-bow {
-  position: absolute; inset: 0; display: block; padding: 0; margin: 0; border: 0; border-radius: 50%;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: block; padding: 0; margin: 0; border: 0; border-radius: 50%;
   background: none; cursor: pointer; color: inherit; font: inherit; touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 .cg-bow[aria-disabled="true"] { cursor: progress; }
 .cg-bow:focus { outline: none; }
 .cg-bow:focus-visible::before {
-  content: ''; position: absolute; inset: 24% 13% 10%; border-radius: 48% / 42%;
+  content: ''; position: absolute; top: 24%; right: 13%; bottom: 10%; left: 13%; inset: 24% 13% 10%; border-radius: 48% / 42%;
   border: 1px dashed rgba(138, 100, 48, .6); box-shadow: 0 0 0 6px rgba(233, 207, 148, .18);
 }
 .cg-bow__lift {
-  position: absolute; inset: 0; transition: transform .7s var(--cg-ease); transform-origin: 50% var(--cg-knot-y, 45%);
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; transition: transform .7s var(--cg-ease); transform-origin: 50% var(--cg-knot-y, 45%);
   opacity: 0; transform: translate3d(0, 14px, 0) scale(.94);
 }
 .cgate.is-bow .cg-bow__lift { opacity: 1; transform: none; transition: transform 1.6s var(--cg-ease), opacity 1.2s ease; }
 .cgate.is-ready.is-bow .cg-bow__lift { transition: transform .7s var(--cg-ease), opacity 1.2s ease; }
 .cg-bow__glow {
-  position: absolute; inset: -8%; border-radius: 50%; pointer-events: none; opacity: 0;
+  position: absolute; top: -8%; right: -8%; bottom: -8%; left: -8%; inset: -8%; border-radius: 50%; pointer-events: none; opacity: 0;
   background: radial-gradient(circle at 50% 47%, rgba(255, 246, 222, .95) 0%, rgba(240, 214, 160, .38) 34%, rgba(240, 214, 160, 0) 66%);
   transition: opacity .7s var(--cg-ease);
 }
 .cg-bow__canvas, .cg-bow__img, .cg-bow__svg {
-  position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none;
 }
 .cg-bow__img, .cg-bow__svg { object-fit: contain; }
 .cg-bow__pulse {
@@ -287,7 +287,7 @@
 /* La cara impresa solo muestra el texto; la capa interactiva solo lazo/hilo/pista/enlace.
    (las dos capas comparten la misma maqueta para que todo quede alineado) */
 .cg-face .cg-thread, .cg-face .cg-bow-slot > *, .cg-face .cg-hint, .cg-face .cg-skip { visibility: hidden; }
-.cg-ui { position: absolute; inset: 0; }
+.cg-ui { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; }
 .cg-ui .cg-top { visibility: hidden; }
 .cg-ui .cg-col { pointer-events: none; }
 .cg-ui .cg-bow, .cg-ui .cg-hint, .cg-ui .cg-skip { pointer-events: auto; }
@@ -298,7 +298,7 @@
 .cgate.is-untie .cg-bow { cursor: default; }
 
 /* Destellos (partículas doradas) */
-.cg-sparks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cg-sparks { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
 /* Entrada (al montar): el texto espera a las fuentes (sin parpadeo con la tipografía de respaldo) */
 .cgate:not(.is-in) .cg-face .cg-top, .cgate:not(.is-in) .cg-ui .cg-thread, .cgate:not(.is-in) .cg-ui .cg-skip { opacity: 0; }

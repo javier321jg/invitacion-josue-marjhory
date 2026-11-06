@@ -18,7 +18,7 @@
 // Parámetros: ?nogl=1 · ?reduced=1 · ?sw=1 (permite render por software) · ?historia=off (fuerza la imagen) ·
 //             ?hq=0..3 (fija el nivel de calidad) · ?hp=0..1 (fija el progreso, para capturas)
 import { STORY } from './content.js';
-import { device } from './device.js?v=20261104b';
+import { device } from './device.js?v=20261105a';
 
 const QS = (() => { try { return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } })();
 // COMPAT-FLUIDEZ: con html.soft-motion (preferencia del sistema → modo suave de main.js) la foto se forma con flores igual
@@ -776,6 +776,19 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
     root.classList.remove('is-gl', 'h3d-wait');
     if (root.classList.contains('h3d-img')) return;
     root.classList.add('h3d-img');
+    // 05/11: sin WebGL la foto también «se forma con flores»: pétalos de Blender que llegan en remolino al marco
+    if (figure && !reduced && !figure.querySelector('.h3d-petals')) {
+      const pet = n => new URL('../assets/botanical/' + n + '.webp', import.meta.url).href;
+      const P = [pet('petal-blush-s'), pet('petal-ivory-s')];
+      let h = '';
+      for (let i = 0; i < 16; i++) {
+        const a = i * 137.5 * Math.PI / 180, r = 62 + (i % 5) * 9;
+        h += `<i style="--x:${(Math.cos(a) * r).toFixed(1)}vw;--y:${(Math.sin(a) * r * .8).toFixed(1)}vh;--r:${(i * 47 % 360)}deg;--t:${(i * .07).toFixed(2)}s;--ex:${((i * 29 % 60) - 30)}%;--ey:${((i * 41 % 70) - 35)}%;background-image:url(${P[i % 2]})"></i>`;
+      }
+      const d = document.createElement('div');
+      d.className = 'h3d-petals'; d.setAttribute('aria-hidden', 'true'); d.innerHTML = h;
+      figure.append(d);
+    }
     const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { figure?.classList.add('is-in'); io.disconnect(); } }, { threshold: 0.18 });
     if (figure) io.observe(figure);
     cleanups.push(() => io.disconnect());
@@ -812,7 +825,7 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
   return api;
 
   function publish() {
-    try { (window.__inv ||= {}).historia = api; } catch {}
+    try { (window.__inv = window.__inv || {}).historia = api; } catch {}
   }
   function state() {
     return gl ? { tier: gl.tier, n: gl.activeN, dpr: gl.renderer.getPixelRatio(), prog: gl.prog, done: gl.done, target: gl.target, fps: api.fps,
@@ -869,7 +882,7 @@ export function mountHistoria(root = document.getElementById('historia'), opts =
     // ---- nivel de calidad inicial ----
     const narrow = innerWidth < 720 || COARSE;
     const cores = navigator.hardwareConcurrency || 4;
-    let tier = QS.has('hq') ? clamp(+QS.get('hq') | 0, 0, 3) : narrow ? 1 : cores <= 4 ? 2 : 3;
+    let tier = QS.has('hq') ? clamp(+QS.get('hq') | 0, 0, 3) : device.low ? 0 : narrow ? 1 : cores <= 4 ? 2 : 3;
     const maxTier = tier;
     const parts = await buildParticles(TIERS[tier].n);
     if (disposed) return fail(new Error('desmontado'));

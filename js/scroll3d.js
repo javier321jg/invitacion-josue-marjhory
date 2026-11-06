@@ -229,7 +229,10 @@ const TL_REDUCED = {
 // la sección al terminar de escribir y su tramo final guía el alejamiento)
 // Pedido del usuario (31/10): al deslizar rápido en el celular la escena seguía fija 7–8 pantallas (topes 3.2× / 6×). Con topes más altos
 // la apertura y la pluma se aceleran con el gesto (la pluma más ágil) y se pasa a la historia en ~3–4 pantallas; a ritmo normal no cambia nada.
-const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 5, writeCap: 14, backCap: 9, tau: 0.85, openEst: 7.6 };
+// 05/11 (pedido del usuario: «no puede saltar; tiene que ir de acuerdo a la velocidad de las animaciones»): con el ritmo de
+// main.js (js/pace.js) el invitado ya no recorre pantallas vacías: la página espera a la escena. Así los topes vuelven a ser
+// bajos y la pluma SIEMPRE se ve escribir (22 s a 1×; ≥ 7 s aunque se empuje sin parar).
+const PACE = { sOpen: 0.15, sWrite: 0.78, sBack: 0.86, openCap: 2, writeCap: 3, backCap: 3, tau: 0.85, openEst: 7.6 };
 const READ_HOLD = 0.7;   // s (naturales) con todo escrito antes de alejarse
 const BACK_DUR = 2.6;    // s (naturales) del alejamiento final; los CTA aparecen al 55 %
 
@@ -601,7 +604,7 @@ export async function mountScroll(container, opts = {}) {
   try { if (getComputedStyle(container).position === 'static') container.style.position = 'relative'; } catch { /* */ }
   container.appendChild(canvas);
   const vignetteEl = document.createElement('div');
-  vignetteEl.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background:radial-gradient(ellipse 80% 75% at 50% 50%, rgba(150,112,62,0) 55%, rgba(150,112,62,.2) 100%);';
+  vignetteEl.style.cssText = 'position:absolute;top:0;right:0;bottom:0;left:0;inset:0;pointer-events:none;display:none;background:radial-gradient(ellipse 80% 75% at 50% 50%, rgba(150,112,62,0) 55%, rgba(150,112,62,.2) 100%);';
   container.appendChild(vignetteEl);
 
   let renderer;

@@ -1,7 +1,11 @@
 // The real Blender animation, baked into WebP frames: no video decoder, autoplay or WebGL.
-import { device } from './device.js?v=20261104b';
+import { device } from './device.js?v=20261105a';
 const BASE = new URL('../assets/botanical/', import.meta.url);
 const SIZE = device.light ? 240 : 360, COLS = 7, FRAMES = 42, FPS = 15;
+// 05/11 («que se vea la cinta soltándose en móvil»): el atlas tiene 15 cuadros/s; se funde cada cuadro con el siguiente
+// (movimiento continuo a 60 Hz en vez de saltos) y el desatado va un 12 % más pausado. openTime() sigue en segundos del
+// video original, así los eventos de la puerta (tirón, nudo, polvo de oro, apertura) caen donde deben.
+const SPEED = 0.88;
 export function createRibbonLite({ button, canvas, assets, reduced, onOwnProgress, ts = 1 }) {
   const ctx = canvas.getContext('2d');
   let idle = null, atlas = null, mode = 'canvas', disposed = false, opening = false;
@@ -23,8 +27,14 @@ export function createRibbonLite({ button, canvas, assets, reduced, onOwnProgres
     if (disposed || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.globalAlpha = opacity;
     if (opening && atlas && !fallbackOpening) {
-      const f = Math.min(FRAMES - 1, Math.floor(elapsed * FPS));
+      const ff = Math.min(FRAMES - 1, elapsed * FPS), f = Math.floor(ff), k = ff - f;
       ctx.drawImage(atlas, f % COLS * SIZE, Math.floor(f / COLS) * SIZE, SIZE, SIZE, 0, 0, canvas.width, canvas.height);
+      if (k > .02 && f < FRAMES - 1) {
+        const g = f + 1;
+        ctx.globalAlpha = opacity * k;
+        ctx.drawImage(atlas, g % COLS * SIZE, Math.floor(g / COLS) * SIZE, SIZE, SIZE, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = opacity;
+      }
     } else if (idle && opening && fallbackOpening) {
       // If the atlas is unavailable, the two halves still pull apart visibly.
       const t = Math.min(1, elapsed / 2.2), W = canvas.width, H = canvas.height;
@@ -40,7 +50,7 @@ export function createRibbonLite({ button, canvas, assets, reduced, onOwnProgres
   }
   // Start the atlas request immediately; a broken atlas never prevents entry.
   const atlasP = reduced ? Promise.resolve(null) : load(new URL(device.light ? 'ribbon-open.webp' : 'ribbon-open-hq.webp', BASE)).then(im => { atlas = im; return im; });
-  const ready = load(new URL('ribbon-idle.webp', BASE), 3500).then(async im => {
+  const idleReady = load(new URL('ribbon-idle.webp', BASE), 3500).then(async im => {
     idle = im || await load(assets.poster, 2000);
     if (disposed) return mode;
     if (!idle) {
@@ -50,17 +60,20 @@ export function createRibbonLite({ button, canvas, assets, reduced, onOwnProgres
     }
     button.classList.add('is-atlas'); resize(); onOwnProgress?.(1); return mode;
   });
+  const ready = idleReady;
+  // el lazo se puede tocar cuando ya está la animación real del desatado (o a los 7 s, con la de respaldo): gate.js lo espera
+  const atlasReady = Promise.race([atlasP, new Promise(r => setTimeout(r, 7000))]);
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : null;
   ro?.observe(button); addEventListener('resize', resize, { passive: true });
   function halt() { cancelAnimationFrame(raf); raf = 0; }
   return {
-    ready,
+    ready, atlasReady,
     get mode() { return mode; }, get fps() { return FPS; }, get bankSize() { return 0; },
     get canvasEl() { return canvas; }, get abrir() { return atlas; },
     get bandSource() { return idle ? [idle, 'img'] : null; },
     get abrirEnded() { return ended; }, get gpuMasks() { return true; },
     onFirstFrame(cb) { ready.then(() => { if (!disposed) cb(); }); },
-    openTime() { return elapsed; }, duration() { return 2.8; },
+    openTime() { return elapsed; }, duration() { return 2.8; }, get speed() { return SPEED; },
     setGlow() {}, pauseIdle() {}, precomputeMasks() {}, bankMask() { return null; },
     sampleMask() {
       if (disposed || !idle) return Promise.resolve([]);
@@ -77,15 +90,15 @@ export function createRibbonLite({ button, canvas, assets, reduced, onOwnProgres
       if (disposed || reduced || !ctx) return Promise.resolve(false);
       // Don't await a network request before acknowledging the tap.
       button.classList.add('is-ribbon-pull');
-      return Promise.race([atlasP, new Promise(r => setTimeout(() => r(null), 450))]).then(im => {
+      return Promise.race([atlasP, new Promise(r => setTimeout(() => r(null), atlas ? 0 : 1600))]).then(im => {
         if (disposed || (!im && !idle)) return false;
         fallbackOpening = !im;
         opening = true; ended = false; frame = -1; const start = performance.now();
         button.classList.remove('is-ribbon-pull');
         const tick = now => {
           if (disposed) return;
-          elapsed = Math.min(2.8, (now - start) / 1000 * ts);
-          const next = Math.floor(elapsed * FPS);
+          elapsed = Math.min(2.8, (now - start) / 1000 * ts * SPEED);
+          const next = Math.round(elapsed * FPS * 8);   // (1/8 de cuadro: el fundido avanza en cada refresco)
           if (next !== frame) { frame = next; draw(); }
           if (elapsed < 2.8) raf = requestAnimationFrame(tick); else { ended = true; raf = 0; }
         };

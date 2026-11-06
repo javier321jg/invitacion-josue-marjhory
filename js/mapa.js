@@ -41,7 +41,7 @@ const T = {
 };
 
 let datosP = null;
-const datos = () => (datosP ||= fetch(new URL('mapa.json', BASE)).then(r => {
+const datos = () => (datosP = datosP || fetch(new URL('mapa.json', BASE)).then(r => {
   if (!r.ok) throw new Error('mapa.json ' + r.status);
   return r.json();
 }));
@@ -701,7 +701,7 @@ export function mountMapa(root, opts = {}) {
   // ---------------------------------------------------------------- carga
   let cargaP = null;
   function cargar() {
-    return (cargaP ||= (async () => {
+    return (cargaP = cargaP || (async () => {
       const D = await datos();
       S.D = D;
       medirEscenario();

@@ -42,7 +42,7 @@
 }
 /* filete dorado interior (doble línea del marco) */
 .mapa__card::before {
-  content: ''; position: absolute; inset: 4px; border-radius: 18px; pointer-events: none;
+  content: ''; position: absolute; top: 4px; right: 4px; bottom: 4px; left: 4px; inset: 4px; border-radius: 18px; pointer-events: none;
   border: 1px solid rgba(138, 100, 48, .28);
 }
 .mapa__frame { position: relative; border-radius: 15px; }
@@ -84,7 +84,7 @@
   box-shadow: 0 14px 30px -16px rgba(214, 186, 132, .8), inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -1px 0 rgba(90, 55, 20, .35);
 }
 .mapa__btn--oro::after {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: -1; pointer-events: none;
   background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, .7) 46%, transparent 62%);
   transform: translateX(-120%);
 }
@@ -123,8 +123,8 @@
 .mapa.is-on .mapa__frame { transform: perspective(1100px); transform-style: flat; }   /* js/mapa.js inclina con estilo en línea */
 .mapa.is-tilt .mapa__frame { will-change: transform; }
 
-.mapa__stage { position: absolute; inset: 0; overflow: hidden; contain: strict; }
-.mapa__suelo, .mapa__flota { position: absolute; inset: -14px; }      /* margen para el parallax (lo mueve js/mapa.js) */
+.mapa__stage { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; overflow: hidden; contain: strict; }
+.mapa__suelo, .mapa__flota { position: absolute; top: -14px; right: -14px; bottom: -14px; left: -14px; inset: -14px; }      /* margen para el parallax (lo mueve js/mapa.js) */
 .mapa__flota { pointer-events: none; }
 .mapa__suelo > *, .mapa__flota > * { position: absolute; left: 14px; top: 14px; }
 
@@ -346,21 +346,21 @@
 
 /* ---------- velo, adornos del marco, brújula, escala, coordenadas ---------- */
 .mapa__velo {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none;
   background:
     radial-gradient(130% 100% at 50% 50%, rgba(10, 8, 9, 0) 55%, rgba(10, 8, 9, .55) 100%),
     linear-gradient(180deg, rgba(10, 8, 9, .35), rgba(10, 8, 9, 0) 16%, rgba(10, 8, 9, 0) 84%, rgba(10, 8, 9, .45));
 }
 .mapa__brillo {
-  position: absolute; inset: -30%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  position: absolute; top: -30%; right: -30%; bottom: -30%; left: -30%; inset: -30%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
   background: linear-gradient(115deg, rgba(255, 236, 200, 0) 38%, rgba(255, 236, 200, .1) 48%, rgba(255, 236, 200, 0) 58%);
   transition: opacity .6s;
 }
 .mapa.is-tilt .mapa__brillo { opacity: 1; }
-.mapa__marco { position: absolute; inset: 0; pointer-events: none; }
+.mapa__marco { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; }
 .mapa__marco::before, .mapa__marco::after { content: ''; position: absolute; pointer-events: none; }
-.mapa__marco::before { inset: 6px; border: 1px solid rgba(214, 186, 132, .34); border-radius: 10px; }
-.mapa__marco::after { inset: 10px; border: 1px solid rgba(214, 186, 132, .12); border-radius: 7px; }
+.mapa__marco::before { top: 6px; right: 6px; bottom: 6px; left: 6px; inset: 6px; border: 1px solid rgba(214, 186, 132, .34); border-radius: 10px; }
+.mapa__marco::after { top: 10px; right: 10px; bottom: 10px; left: 10px; inset: 10px; border: 1px solid rgba(214, 186, 132, .12); border-radius: 7px; }
 .mapa__esq { position: absolute; width: 26px; height: 26px; overflow: visible; }
 .mapa__esq--tl { left: 3px; top: 3px; }
 .mapa__esq--tr { right: 3px; top: 3px; transform: scaleX(-1); }

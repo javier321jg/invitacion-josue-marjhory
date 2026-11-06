@@ -19,7 +19,7 @@
 /* ---------- fondo fijo ---------- */
 .finale__bg { position: sticky; top: 0; height: 100vh; height: 100lvh; overflow: hidden; z-index: 0; }   /* FIX: lvh (barra dinámica) */
 .finale__stage {
-  position: absolute; inset: 0; overflow: hidden;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; overflow: hidden;
   /* cielo extendido (modo imagen y mientras carga): índigo arriba → azul del cielo de la foto */
   background: linear-gradient(180deg, #16234f 0%, #2d5aa3 calc(var(--fin-photo-top, 40svh) * .55), var(--fin-sky-top, #5d93d6) var(--fin-photo-top, 40svh), var(--fin-sky, #8db8e6) 100%);
 }
@@ -29,7 +29,7 @@
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18%); mask-image: linear-gradient(180deg, transparent 0, #000 18%);
 }
 .finale__photo[style] { transform: none; bottom: auto; }       /* final3d.js fija el mismo encuadre que el WebGL */
-.finale__canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; opacity: 0; transition: opacity .9s ease; }
+.finale__canvas { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; width: 100% !important; height: 100% !important; display: block; opacity: 0; transition: opacity .9s ease; }
 .finale.is-gl .finale__canvas { opacity: 1; }
 .finale.is-gl .finale__photo, .finale.is-gl .finale__tint { visibility: hidden; transition: visibility 0s 1s; }
 
@@ -37,9 +37,9 @@
    entibiado y en penumbra (multiplicar). --fin-hz = altura del horizonte de la foto (la pone final3d.js). */
 /* FIX: la opacidad va en cada capa (no en el grupo): con opacity < 1 en .finale__tint el grupo quedaba aislado y el ::after
    (multiplicar) ya no se mezclaba con la foto: tapaba el valle y el pueblo con una banda plana durante el fundido. */
-.finale__tint { position: absolute; inset: 0; pointer-events: none; }
+.finale__tint { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; }
 .finale__tint::before {
-  content: ''; position: absolute; inset: 0; opacity: var(--fk);
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; opacity: var(--fk);
   background:
     radial-gradient(ellipse 34% 20% at 74% var(--fin-hz, 55%), rgba(255, 226, 160, .85), rgba(255, 170, 90, .35) 50%, transparent 78%),
     linear-gradient(180deg, rgba(30, 26, 84, .9) 0%, rgba(92, 56, 140, .7) calc(var(--fin-hz, 55%) * .45),
@@ -54,7 +54,7 @@
 
 /* velo de lectura: solo arriba (donde va el texto), más presente de día, casi nada al atardecer */
 .finale__veil {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(10, 16, 46, .5) 0%, rgba(10, 16, 46, .26) 26%, rgba(10, 16, 46, 0) 50%),
               linear-gradient(0deg, rgba(8, 8, 24, .34) 0%, rgba(8, 8, 24, 0) 22%);
   opacity: calc(1 - var(--fk) * .55);
@@ -227,3 +227,29 @@ html.fin-on .fx-grain { opacity: .45; transition: opacity 1.2s ease; }
 @media (max-width: 340px) and (min-height: 641px) and (max-height: 700px) {
   #final.finale .mapa { --mapa-max-h: max(150px, calc(80svh - 404px)); }
 }
+
+/* 05/11 · modo imagen (sin WebGL): luces del pueblo que se encienden con el atardecer, estrellas y estrella fugaz.
+   Capas compuestas (opacidad/transform): baratas en cualquier teléfono. */
+.finale__night { position: absolute; pointer-events: none; }
+.fn-light { position: absolute; width: calc(7px * var(--s, 1)); height: calc(7px * var(--s, 1)); margin: calc(-3.5px * var(--s, 1)) 0 0 calc(-3.5px * var(--s, 1));
+  border-radius: 50%; background: radial-gradient(closest-side, #fffbe6, #ffd27a 38%, rgba(255, 170, 70, .45) 62%, rgba(255, 150, 60, 0));
+  opacity: clamp(0, calc((var(--fk) - .42 - var(--o) * .45) * 6), 1); }
+.fn-light::after { content: ''; position: absolute; top: -160%; right: -160%; bottom: -160%; left: -160%; inset: -160%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 196, 110, .32), rgba(255, 170, 80, 0)); animation: fn-twinkle var(--w, 3s) ease-in-out var(--p, 0s) infinite alternate; }
+@keyframes fn-twinkle { from { opacity: .35; transform: scale(.8); } to { opacity: 1; transform: scale(1.15); } }
+.finale__sky-fx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; }
+.fn-star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fffaf0; box-shadow: 0 0 6px 1px rgba(255, 244, 210, .7);
+  opacity: clamp(0, calc((var(--fk) - .78 - var(--o) * .12) * 6), 1); animation: fn-blink var(--d, 2.5s) ease-in-out infinite alternate; }
+@keyframes fn-blink { from { transform: scale(.6); } to { transform: scale(1.25); } }
+.fn-shoot { position: absolute; right: 6%; top: 40%; width: 150px; height: 2px; opacity: 0; transform-origin: 0 50%;
+  background: linear-gradient(90deg, #fffdf4 0%, rgba(255, 236, 190, .85) 12%, rgba(255, 220, 160, 0) 100%); border-radius: 2px;
+  filter: drop-shadow(0 0 4px rgba(255, 240, 200, .9)); }
+@media (orientation: landscape) { .fn-shoot { right: 4%; top: 7%; } }
+.fn-shoot.is-on { animation: fn-shoot 1.35s cubic-bezier(.25, .6, .3, 1) both; }
+@keyframes fn-shoot {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(-158deg) scaleX(.2); }
+  15% { opacity: 1; }
+  70% { opacity: .9; }
+  100% { opacity: 0; transform: translate3d(-42vw, 9vh, 0) rotate(-158deg) scaleX(1); }
+}
+#final.is-rm .finale__night, #final.is-rm .finale__sky-fx { display: none; }

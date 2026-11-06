@@ -10,8 +10,9 @@
 // ESCENA (decisión n.º 5): el pergamino se abre solo al quedar fija su sección, el scroll guía la secuencia (setScrollProgress,
 // ritmo = max(tiempo, scroll) con tope) y la sección no se suelta hasta que todo está escrito y con los CTA (parchBrake).
 import * as C from './content.js';
-import { device } from './device.js?v=20261104b';
-import { createSong } from './song.js?v=20261104b';
+import { device } from './device.js?v=20261105a';
+import { createSong } from './song.js?v=20261105a';
+import { createPace } from './pace.js?v=20261105a';
 import { initGrain, initFiber, initDust, initGlow } from './shell-fx.js';
 import { buildParchmentCard, fillA11yCopy, buildIcsHref, initGallery, initCountdown, initMusicButton } from './shell-ui.js';
 import { splitLetters, layoutLetters, initReveals, revealGallery, revealCountdown } from './shell-reveal.js';
@@ -26,9 +27,13 @@ const html = document.documentElement;
 const qs = new URLSearchParams(location.search);
 const STUBS = qs.has('stubs');
 const MOD = STUBS ? '../tests/stubs/' : './';
-// Honor the system motion preference; the botanical border stays fully visible without movement.
-const SOFT = false;
-const REDUCED = qs.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+// COMPAT-FLUIDEZ (decisión n.º 8, repetida el 05/11: «que se vean las animaciones en todos los celulares»): Android activa
+// prefers-reduced-motion con «Quitar animaciones» (truco común para «acelerar» teléfonos de gama baja) y la web quitaba
+// toda la magia. La preferencia del sistema da un modo SUAVE: todo se anima (lazo, flores, anillos, pluma, historia,
+// atardecer) pero sin viaje de cámara en el pergamino ni parallax. ?reduced=1 conserva el modo reducido estricto.
+// html.soft-motion lo leen escritura.js, historia3d.js, final3d.js, mapa.js, gate.css y botanical.css.
+const SOFT = !qs.has('reduced') && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REDUCED = qs.has('reduced');
 if (SOFT) html.classList.add('soft-motion');
 const gsap = window.gsap || null;
 const ScrollTrigger = window.ScrollTrigger || null;
@@ -86,6 +91,8 @@ const state = {
   // PERF: scrollReadyAt = cuándo quedó listo el pergamino 3D (0 = montándose); namesDone = terminó el revelado de los nombres
   // PERF-RETOMA: scrollBeat = ratos ociosos que pidió el montaje del pergamino (latido para withStall)
   scrollReadyAt: 0, namesDone: false, scrollBeat: 0,
+  // RITMO: la tarjeta HTML terminó de escribir los nombres (la parada de la tarjeta se suelta)
+  cardWritten: false,
 };
 let resolveReady;
 const inv = window.__inv = {
@@ -214,7 +221,7 @@ function startKineticTrack() {
 async function loadRings() {
   if (NO_GL) { ringsFallback(); prog.rings = 1; return null; }
   try {
-    const m = await import(MOD + 'rings3d.js?v=20261104b');
+    const m = await import(MOD + 'rings3d.js?v=20261105a');
     const mounting = m.mountRings(els.ringsStage, {
       reducedMotion: REDUCED,
       onProgress: p => { prog.rings = clamp(p) * .98; },
@@ -243,10 +250,11 @@ async function loadScroll() {
   if (NO_GL) { scrollFallback(); state.scrollProg = 1; return null; }
   try {
     await idleSlot();
-    const m = await import(MOD + 'scroll3d.js?v=20261104b');
+    const m = await import(MOD + 'scroll3d.js?v=20261105a');
     const mounting = m.mountScroll(els.scrollStage, {
       music: withHaptics(state.music) || undefined,
       reducedMotion: REDUCED, softMotion: SOFT,
+      ...(device.low ? { dprMax: 1 } : {}),
       // (cada rato ocioso que pide el montaje — lazo, pergamino, franjas, compilación — es un latido: está avanzando)
       idle: () => { state.scrollBeat++; return idleSlot(); },
       onProgress: p => { state.scrollProg = clamp(p); els.hint.style.setProperty('--prep', state.scrollProg.toFixed(3)); },
@@ -334,13 +342,13 @@ function injectPerfCss() {
   const s = document.createElement('style');
   s.id = 'perf-css';
   s.textContent = `
-.parch-wait{position:absolute;inset:0;z-index:0;overflow:hidden;opacity:0;transition:opacity .9s ease;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.parch-wait{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;z-index:0;overflow:hidden;opacity:0;transition:opacity .9s ease;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .parch-wait.is-on{opacity:1}
 .parch-wait.is-off{opacity:0;pointer-events:none}
 .parch-wait img{position:absolute;left:-2%;top:-2%;width:104%;height:104%;object-fit:cover;filter:saturate(.95) blur(2.5px)}
-.parch-wait::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 45% at 50% 58%,rgba(255,176,96,.16),rgba(255,176,96,0) 70%);animation:pw-breathe 3.4s ease-in-out infinite}
+.parch-wait::after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 45% at 50% 58%,rgba(255,176,96,.16),rgba(255,176,96,0) 70%);animation:pw-breathe 3.4s ease-in-out infinite}
 @keyframes pw-breathe{50%{opacity:.35}}
-.hint.is-preparing .hint__seal::after{content:'';position:absolute;inset:-7px;border-radius:50%;pointer-events:none;
+.hint.is-preparing .hint__seal::after{content:'';position:absolute;top:-7px;right:-7px;bottom:-7px;left:-7px;inset:-7px;border-radius:50%;pointer-events:none;
   background:conic-gradient(from -90deg,var(--gold-hi,#f6e3b4) calc(var(--prep,0) * 1turn),rgba(214,186,132,.18) 0);
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1.5px));
   mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1.5px))}
@@ -763,12 +771,13 @@ async function openParchment(source) {
  *  el papel se despliega (js/escritura.js no necesita WebGL). Sin el módulo o sin los trazos, queda el texto dorado. */
 function writeCardNames(card, delay = 0) {
   const pieces = [...card.querySelectorAll('[data-escritura]')];
-  if (!pieces.length) return;
+  if (!pieces.length) { setTimeout(() => { state.cardWritten = true; }, delay + 1500); return; }
   setTimeout(async () => {
     const api = window.__escritura || inv.escritura;
-    if (!api?.play) { pieces.forEach(el => { el.dataset.escrituraModo = 'vista'; }); return; }
+    if (!api?.play) { pieces.forEach(el => { el.dataset.escrituraModo = 'vista'; }); state.cardWritten = true; return; }
     const dur = { 'tarjeta-nombre-1': 1.9, 'tarjeta-nombre-y': 0.7, 'tarjeta-nombre-2': 2.5 };
     for (const el of pieces) { try { await api.play(el, { duracion: dur[el.dataset.escritura] || 0 }); } catch {} }
+    state.cardWritten = true;
   }, delay);
 }
 
@@ -805,6 +814,8 @@ let parchExtra = 0;
 /** Alarga la sección fija (sin mover el scroll) si al bajar quedan menos de `k` pantallas de recorrido fijo (0.9; 0.4 con
  *  todo escrito: solo falta el alejamiento, que acelera con el scroll). Si ya se acortó (parchTrim), alarga ese alto. */
 function extendParch(pr, vh, k = .9) {
+  // RITMO: con js/pace.js la página ya espera a la escena (no deja pasar la sección fija): alargarla solo añadiría recorrido
+  if (pace) return;
   const left = pr.bottom - vh, margin = vh * k;
   if (left >= margin) return;
   const step = vh * .25, add = Math.ceil((margin - left) / step) * step;
@@ -1072,16 +1083,106 @@ function update() {
   // vista, como el pergamino 3D al quedar fijo. Antes solo se abría tocando el sello y quien seguía bajando nunca veía el texto.
   if (state.entered && autoOpenArmed && state.fallbackScroll && state.fallbackCard && !state.opened && !state.opening) {
     const cr = state.fallbackCard.getBoundingClientRect();
-    if (cr.top < vh * .6 && cr.bottom > vh * .3) { autoOpenArmed = false; openParchment('auto'); }
+    // (la tarjeta cerrada es baja: basta con que se vea entera por encima del 60 % de la pantalla)
+    if (cr.top < vh * .6 && cr.bottom > Math.min(vh * .3, cr.top + cr.height * .6)) { autoOpenArmed = false; openParchment('auto'); }
   }
   parchBrake(pr, vh);
   mountBrake(pr, vh);
   parchFlow(pr, vh);
+  pace?.update();
   cueTick();
   if (!els.ctas.hidden && (ctaShift.x || ctaShift.y || (window.visualViewport?.scale ?? 1) > 1.01)) queueFitCtas();
   // Polvo de oro: solo en secciones sin 3D
   const story = $('#historia').getBoundingClientRect();
   dust?.setEnabled(story.top < vh * .9 || state.fallbackScroll && pr.top < vh * .5);
+}
+
+/* ------------------------------------------------------------------------ */
+/* RITMO (05/11): el scroll no se adelanta a las animaciones (js/pace.js)    */
+/* ------------------------------------------------------------------------ */
+/* Pedido del usuario: «que no se salte al otro; si bajo todo rápido, tiene que ir de acuerdo a la velocidad de las
+ * animaciones». Paradas en orden: anillos y nombres → pergamino escrito (o la tarjeta HTML con sus nombres) → foto de la
+ * historia formada con flores → título y firma en oro → título de los momentos → final: J & M, la frase, el atardecer y la
+ * primera estrella fugaz. Con ?reduced=1 no hay paradas (todo aparece enseguida). ?ritmo=0 las quita (pruebas). */
+let pace = null;
+function mountPace() {
+  if (REDUCED || qs.get('ritmo') === '0') return;
+  pace = inv.pace = createPace({
+    labelWait: C.UI?.espera || 'Un momento…', labelGo: C.UI?.seguir || 'Desliza para continuar', ios: device.ios,
+    // el aviso sube por encima de los botones que estén abajo (sello, «Cómo llegar / Agendar / Leer texto»): no los tapa
+    bottom: () => {
+      let b = 18;
+      for (const el of [els.hint, els.ctas]) {
+        if (!el || el.hidden || el.classList.contains('is-hidden')) continue;
+        const r = el.getBoundingClientRect();
+        if (r.height && r.top < innerHeight && r.bottom > innerHeight - 140) b = Math.max(b, Math.round(innerHeight - r.top + 10));
+      }
+      return Math.min(b, innerHeight * .4);
+    },
+  });
+  const vh = () => innerHeight || 800;
+  const docTop = el => el.getBoundingClientRect().top + scrollY;
+  const ESC = () => window.__escritura || inv.escritura;
+  const written = el => !el || !ESC() || /^(escrito|error)$/.test(el.dataset.escrituraEstado || '') || (!el.classList.contains('esc-on') && !el.dataset.escrituraEstado && performance.now() > 20000);
+  const estado = (...els) => els.map(el => (el?.dataset.escrituraEstado || '-')).join('|');
+  // 1) llegada de los anillos y nombres
+  pace.add({ id: 'anillos', active: () => state.entered, done: () => state.namesDone, y: () => vh() * .32, maxMs: 9000 });
+  // 2) pergamino 3D: la sección fija no se suelta hasta que todo está escrito, alejado y con los CTA (handleOpened).
+  //    (el freno de la escena alarga la sección mientras tanto; esta parada solo impide un salto que la deje atrás)
+  pace.add({
+    id: 'pergamino', active: () => state.entered && !state.fallbackScroll, done: () => state.opened,
+    live: () => !!state.scroll && (state.opening || state.opened),
+    y: () => docTop(els.parch) + Math.max(0, els.parch.offsetHeight - parchStickyH()) - 2,
+    prog: () => { let sq = null; try { sq = state.scroll?.sequence; } catch {} return [state.scrollProg, state.scrollBeat, sq?.wt, sq?.phase, sq?.back].join('|'); },
+    maxMs: 60000, stallMs: 25000,
+  });
+  // 2b) tarjeta HTML (teléfonos sin WebGL 2): se abre y escribe los nombres con la pluma antes de seguir
+  pace.add({
+    id: 'tarjeta', active: () => state.entered && state.fallbackScroll && !!state.fallbackCard?.isConnected,
+    done: () => state.cardWritten, y: () => docTop(state.fallbackCard) - vh() * .22,
+    prog: () => [state.opening, state.opened, estado(...state.fallbackCard.querySelectorAll('[data-escritura]'))].join('|'),
+    maxMs: 16000,
+  });
+  // 3) la foto de la historia se forma con flores (WebGL) o se revela (imagen)
+  const photo = $('#historia .story__photo');
+  let imgSince = 0;
+  pace.add({
+    id: 'historia', active: () => !!photo && !!inv.historia && inv.historia.mode !== 'init',
+    live: () => inv.historia.mode === 'gl' || inv.historia.mode === 'img',
+    done: () => {
+      const h = inv.historia;
+      if (h.mode === 'gl') return h.done > .82;
+      if (h.mode === 'img') { if (!photo.classList.contains('is-in')) return false; imgSince = imgSince || performance.now(); return performance.now() - imgSince > 2000; }
+      return false;
+    },
+    y: () => { const r = photo.getBoundingClientRect(); return r.top + scrollY + r.height / 2 - vh() / 2 + vh() * .12; },
+    prog: () => [inv.historia.mode, (inv.historia.progress || 0).toFixed(3), (inv.historia.done || 0).toFixed(3), photo.classList.contains('is-in')].join('|'),
+    maxMs: 12000,
+  });
+  // 4) título y firma de la historia, escritos en oro
+  const t1 = $('#historia .story__title'), sig = $('#historia [data-escritura="historia-firma"]');
+  if (t1 && sig) pace.add({
+    id: 'historia-texto', active: () => !!ESC(), done: () => written(sig),
+    y: () => Math.max(docTop(t1) - vh() * .1, docTop(sig) + sig.offsetHeight - vh() * .9),
+    prog: () => estado(...$$('#historia [data-escritura]')) + (ESC()?.list?.().map(x => (+x.avance || 0).toFixed(2)).join(',') || ''),
+    maxMs: 22000,
+  });
+  // 5) título de los momentos
+  const mt = $('#momentos [data-escritura="momentos-titulo"]');
+  if (mt) pace.add({
+    id: 'momentos', active: () => !!ESC(), done: () => written(mt), y: () => docTop(mt) - vh() * .22,
+    prog: () => estado(mt) + (ESC()?.list?.().map(x => (+x.avance || 0).toFixed(2)).join(',') || ''), maxMs: 8000,
+  });
+  // 6) final: J & M y la frase en oro, el atardecer con las luces del pueblo y la primera estrella fugaz
+  const fin = $('#final');
+  if (fin) pace.add({
+    id: 'final', active: () => !!inv.final && inv.final.mode !== 'init' && fin.classList.contains('is-sc'),
+    live: () => inv.final.mode === 'gl' || inv.final.mode === 'img',
+    done: () => !!inv.final.starShown,
+    y: () => { const r = fin.getBoundingClientRect(), bg = fin.querySelector('.finale__bg')?.offsetHeight || vh(); return r.top + scrollY + Math.max(0, r.height - bg) * .24; },
+    prog: () => [inv.final.mode, (+inv.final.k || 0).toFixed(3), (+inv.final.reveal || 0).toFixed(2), estado(...fin.querySelectorAll('[data-escritura]'))].join('|'),
+    maxMs: 18000,
+  });
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1123,7 +1224,7 @@ function boot() {
 
   // Puerta crema (gate.js): el hilo dorado muestra la carga; al tocar el lazo → onOpen (síncrono, arranca la canción)
   // → desatado → onReveal (el envoltorio empieza a abrirse: anillos) → onOpened.
-  gateP = import('./gate.js?v=20261104b').then(m => m.mountGate(els.gate, {
+  gateP = import('./gate.js?v=20261105a').then(m => m.mountGate(els.gate, {
     reducedMotion: REDUCED,
     progressSource: () => targetProgress(),
     maxWait: 3500,
@@ -1198,6 +1299,7 @@ function boot() {
     scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
   });
 
+  mountPace();
   addEventListener('scroll', onScroll, { passive: true });
   // AJUSTES: «Desliza para continuar» se retira con el siguiente gesto (antes de que llegue el scroll)
   for (const ev of ['wheel', 'touchstart', 'keydown']) addEventListener(ev, cueKick, { passive: true });

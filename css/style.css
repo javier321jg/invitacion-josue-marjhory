@@ -105,7 +105,7 @@ a { color: inherit; }
   box-shadow: 0 14px 30px -14px rgba(110, 76, 31, .55), inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -1px 0 rgba(90, 55, 20, .35), 0 0 0 1px rgba(110, 76, 31, .35);
 }
 .btn--gold::after {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: -1; pointer-events: none;
   background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, .75) 46%, transparent 62%);
   transform: translateX(-120%); animation: sheen 3.6s var(--ease-io) 1.2s infinite;
 }
@@ -132,7 +132,7 @@ a { color: inherit; }
 /* ==========================================================================
    ATMÓSFERA
    ========================================================================== */
-.fx-dust { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s ease; }
+.fx-dust { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s ease; }
 .hero__flash {
   position: absolute; left: 50%; top: 40%; width: min(120vw, 1100px); aspect-ratio: 1; margin: calc(min(120vw, 1100px) / -2) 0 0 calc(min(120vw, 1100px) / -2);
   pointer-events: none; opacity: 0; mix-blend-mode: screen;
@@ -148,11 +148,11 @@ a { color: inherit; }
 @media (hover: none), (pointer: coarse) { .fx-glow { display: none; } }
 /* CREMA: viñeta de papel (borde apenas tostado, como la puerta), no un marco oscuro */
 .fx-vignette {
-  position: fixed; inset: 0; z-index: 40; pointer-events: none;
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 40; pointer-events: none;
   background: radial-gradient(ellipse 125% 95% at 50% 50%, transparent 62%, rgba(150, 112, 62, .16) 100%);
 }
 .fx-grain {
-  position: fixed; inset: -60px; z-index: 120; pointer-events: none; opacity: .42;
+  position: fixed; top: -60px; right: -60px; bottom: -60px; left: -60px; inset: -60px; z-index: 120; pointer-events: none; opacity: .42;
   background-image: var(--grain, none); background-size: 220px 220px;
   animation: grain .9s steps(6) infinite;
 }
@@ -168,7 +168,7 @@ a { color: inherit; }
    ========================================================================== */
 .hero { position: relative; height: 175vh; }
 .hero__sticky { position: sticky; top: 0; height: 100vh; height: 100lvh; overflow: hidden; }
-.stage { position: absolute; inset: 0; overflow: hidden; }
+.stage { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; overflow: hidden; }
 .stage > canvas { display: block; width: 100% !important; height: 100% !important; }
 /* CREMA: estudio de papel crema (igual que el fondo que pinta rings3d.js; se ve mientras carga y con la imagen de respaldo) */
 .stage--rings {
@@ -206,13 +206,13 @@ a { color: inherit; }
 }
 .stage__svg { position: absolute; left: 50%; top: 36%; width: min(68vw, 420px); transform: translate(-50%, -50%); overflow: visible; }
 .hero__veil {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none;
   background:
     linear-gradient(180deg, rgba(243, 234, 217, .5) 0%, rgba(243, 234, 217, 0) 14%),
     linear-gradient(0deg, rgba(243, 234, 217, .9) 0%, rgba(243, 234, 217, .62) 22%, rgba(243, 234, 217, 0) 46%);
 }
 .hero__content {
-  position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; pointer-events: none;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex; align-items: flex-end; justify-content: center; pointer-events: none;
   padding: 0 var(--gut) calc(78px + var(--safe-b) + var(--bar)); text-align: center; will-change: transform, opacity;
 }
 .hero__inner { width: 100%; max-width: 1100px; }
@@ -228,7 +228,7 @@ a { color: inherit; }
   perspective: 700px; --s: -30%;
 }
 .hero__shadow {
-  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: -1; pointer-events: none;
   display: flex; flex-wrap: inherit; justify-content: center; align-items: baseline; column-gap: inherit;
   color: transparent; text-shadow: 0 1px 0 rgba(255, 251, 242, .9), 0 2px 3px rgba(94, 64, 25, .28), 0 10px 24px rgba(120, 82, 40, .2);
   opacity: 0; will-change: opacity;
@@ -351,12 +351,12 @@ html.reduced .parch { height: var(--parch-h, calc(230vh + var(--parch-extra, 0px
   box-shadow: inset 0 -3px 6px rgba(0, 0, 0, .45), inset 0 2px 3px rgba(255, 170, 170, .25), 0 6px 14px rgba(90, 30, 20, .3);
 }
 .hint__seal::before {
-  content: 'J&M'; position: absolute; inset: 0; display: grid; place-items: center;
+  content: 'J&M'; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: grid; place-items: center;
   font-family: var(--f-script); font-size: 15px; letter-spacing: 0; text-indent: 0; text-transform: none; color: rgba(255, 210, 190, .55);
   text-shadow: 0 -1px 0 rgba(0, 0, 0, .5);
 }
 .hint__seal i {
-  position: absolute; inset: -1px; border-radius: 50%; border: 1px solid rgba(138, 100, 48, .75);
+  position: absolute; top: -1px; right: -1px; bottom: -1px; left: -1px; inset: -1px; border-radius: 50%; border: 1px solid rgba(138, 100, 48, .75);
   animation: ping 2.4s var(--ease) infinite;
 }
 .hint__seal i + i { animation-delay: 1.2s; }
@@ -458,11 +458,11 @@ html.reduced .parch__cue i { animation: none; }
 }
 
 /* Pergamino en HTML (fallback sin WebGL y tarjeta "Leer texto") */
-.parch__fallback { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: 130px var(--gut) 120px; overflow: hidden; }
+.parch__fallback { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1; display: grid; place-items: center; padding: 130px var(--gut) 120px; overflow: hidden; }
 .parch__fallback[hidden] { display: none; }
 .parch.is-fallback { height: auto; }
 .parch.is-fallback .parch__sticky { position: relative; height: auto; min-height: 100vh; min-height: 100svh; overflow: visible; }
-.parch.is-fallback .parch__fallback { position: relative; inset: auto; min-height: 100svh; }
+.parch.is-fallback .parch__fallback { position: relative; top: auto; right: auto; bottom: auto; left: auto; inset: auto; min-height: 100svh; }
 .parch.is-fallback .parch__fade { display: none; }
 
 .pcard { position: relative; width: min(calc(100% - 30px), 440px); margin: 0 auto; scroll-margin-top: 84px; filter: drop-shadow(0 30px 34px rgba(110, 76, 31, .32)) drop-shadow(0 6px 10px rgba(90, 60, 25, .22)); }
@@ -527,7 +527,7 @@ html.reduced .parch__cue i { animation: none; }
   font-family: var(--f-script); font-size: 25px; color: rgba(255, 214, 196, .62); text-shadow: 0 -1px 0 rgba(0, 0, 0, .6);
   transition: transform .9s var(--ease), opacity .7s;
 }
-.pcard__seal::after { content: ''; position: absolute; inset: 9px; border-radius: 50%; border: 1px solid rgba(255, 190, 180, .22); }
+.pcard__seal::after { content: ''; position: absolute; top: 9px; right: 9px; bottom: 9px; left: 9px; inset: 9px; border-radius: 50%; border: 1px solid rgba(255, 190, 180, .22); }
 .pcard.is-closed .pcard__wrap { grid-template-rows: 0fr; }
 .pcard:not(.is-closed) .pcard__seal { transform: scale(1.5) rotate(-20deg); opacity: 0; pointer-events: none; }
 .pcard--reader { filter: none; }
@@ -558,11 +558,11 @@ html.reduced .parch__cue i { animation: none; }
   filter: sepia(.16) saturate(.92) contrast(1.04) brightness(.96); will-change: transform;
 }
 .story__frame::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(60, 40, 22, 0) 62%, rgba(60, 40, 22, .22) 100%), radial-gradient(ellipse at 50% 30%, transparent 60%, rgba(60, 40, 22, .14));
 }
 .story__arch {
-  position: absolute; inset: -12px; border: 1px solid var(--gold-line); pointer-events: none;
+  position: absolute; top: -12px; right: -12px; bottom: -12px; left: -12px; inset: -12px; border: 1px solid var(--gold-line); pointer-events: none;
   border-radius: 50% 50% 22px 22px / 40% 40% 22px 22px;
 }
 .story__arch::before {
@@ -611,14 +611,14 @@ html.reduced .parch__cue i { animation: none; }
   box-shadow: 0 22px 44px -26px rgba(110, 76, 31, .55);
 }
 .ph.is-tilting { transition: transform .12s linear, box-shadow .6s var(--ease); box-shadow: 0 32px 56px -24px rgba(110, 76, 31, .65); }
-.ph__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: sepia(.12) saturate(.94); transition: filter .6s; }
+.ph__img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: sepia(.12) saturate(.94); transition: filter .6s; }
 .ph:hover .ph__img { filter: sepia(0) saturate(1.02); }
 .ph__glare {
-  position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s;
   background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 240, 214, .32), rgba(255, 240, 214, 0) 52%);
 }
 .ph:hover .ph__glare { opacity: 1; }
-.ph::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(138, 100, 48, .3); pointer-events: none; }
+.ph::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(138, 100, 48, .3); pointer-events: none; }
 .ph__num {
   position: absolute; left: 12px; bottom: 10px; font-family: var(--f-sans); font-weight: 600; font-size: 9px; letter-spacing: .3em;
   color: rgba(246, 227, 180, .85); opacity: 0; transform: translateY(6px); transition: opacity .5s, transform .5s var(--ease);
@@ -628,7 +628,7 @@ html.reduced .parch__cue i { animation: none; }
 
 /* Lightbox */
 .lb, .reader {
-  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
   /* CREMA: velo de papel crema (las fotos se ven sobre marfil, como en un álbum) */
   background: rgba(243, 234, 217, .97); color: var(--ivory); overflow: hidden;
 }
@@ -637,7 +637,7 @@ html.reduced .parch__cue i { animation: none; }
 @keyframes fadeIn { from { opacity: 0; } }
 /* FIX compatibilidad (Safari < 15.4: <dialog> desconocido): cerrados no se muestran (antes tapaban la página) */
 .lb:not([open]), .reader:not([open]) { display: none; }
-.lb__stage { position: absolute; inset: 0; display: grid; place-items: center; padding: 72px 16px 96px; touch-action: pan-y; user-select: none; }
+.lb__stage { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: grid; place-items: center; padding: 72px 16px 96px; touch-action: pan-y; user-select: none; }
 .lb__figure { margin: 0; max-width: 100%; max-height: 100%; display: grid; place-items: center; }
 .lb__img {
   max-width: min(100%, 1100px); max-height: calc(100vh - 170px); max-height: calc(100svh - 170px); width: auto; height: auto;
@@ -664,7 +664,7 @@ html.reduced .parch__cue i { animation: none; }
 }
 
 /* Lectura */
-.reader__scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(78px + var(--safe-t)) var(--gut) calc(48px + var(--safe-b)); }
+.reader__scroll { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(78px + var(--safe-t)) var(--gut) calc(48px + var(--safe-b)); }
 .reader__card { max-width: 460px; margin: 0 auto; }
 .reader__close { top: calc(16px + var(--safe-t)); right: 16px; z-index: 2; }
 
@@ -710,7 +710,7 @@ html.reduced .parch__cue i { animation: none; }
 .flip__num { display: block; height: var(--fh); line-height: var(--fh); }
 .flip__half--bottom .flip__num, .flip__face--back .flip__num { margin-top: calc(var(--fh) * -.5); }
 .flip__leaf { position: absolute; left: 0; right: 0; height: 50%; z-index: 3; transform-origin: 50% 100%; transform-style: preserve-3d; }
-.flip__face { inset: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip__face { top: 0; right: 0; bottom: 0; left: 0; inset: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .flip__face--front { border-radius: 10px 10px 0 0; }
 .flip__face--back { transform: rotateX(180deg); border-radius: 0 0 10px 10px; background: linear-gradient(180deg, #1f150f 0%, #171009 100%); }
 .flip.is-flipping .flip__leaf { animation: flip .62s cubic-bezier(.45, .05, .3, 1) forwards; }
@@ -721,7 +721,7 @@ html.reduced .parch__cue i { animation: none; }
   box-shadow: 0 1px 0 rgba(214, 186, 132, .1);
 }
 .flip::before {
-  content: ''; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none;
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none;
   background: linear-gradient(180deg, rgba(255, 240, 210, .07), transparent 40%, transparent 60%, rgba(0, 0, 0, .2));
 }
 .flip .flip__half--top .flip__num, .flip__face--front .flip__num {
@@ -753,7 +753,7 @@ html.reduced .parch__cue i { animation: none; }
 .music[hidden] { display: none; }
 .music:hover { transform: scale(1.06); border-color: var(--gold); }
 .music::before {
-  content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1px solid rgba(138, 100, 48, .6);
+  content: ''; position: absolute; top: -1px; right: -1px; bottom: -1px; left: -1px; inset: -1px; border-radius: 50%; border: 1px solid rgba(138, 100, 48, .6);
   opacity: 0; transform: scale(1);
 }
 .music.is-beat::before { animation: beat .7s var(--ease) forwards; }
@@ -787,3 +787,27 @@ html.no-gsap [data-reveal].is-in { opacity: 1; transform: none; }
 }
 html.reduced .fx-grain, html.reduced .stage__img, html.reduced .scroll-cue__line i,
 html.reduced .hint__seal i, html.reduced .btn--gold::after { animation: none !important; }
+
+/* RITMO (js/pace.js): aviso discreto mientras una animación no termina, y freno de la inercia en iOS */
+html.pace-stop, html.pace-stop body { overflow: hidden !important; }
+.pace-cue {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60; pointer-events: none;
+  display: flex; align-items: center; gap: 9px; padding: 8px 14px 8px 12px; border-radius: 999px;
+  background: rgba(255, 249, 236, .92); border: 1px solid rgba(176, 138, 76, .55); box-shadow: 0 8px 24px -12px rgba(74, 52, 30, .5);
+  color: #5a4026; font: 500 12px/1.2 var(--f-sans, Montserrat, sans-serif); letter-spacing: .04em; white-space: nowrap;
+  opacity: 0; transform: translate3d(-50%, 10px, 0); transition: opacity .35s ease, transform .45s cubic-bezier(.2, .8, .2, 1);
+}
+.pace-cue.is-on { opacity: 1; transform: translate3d(-50%, 0, 0); }
+.pace-cue__dots { display: inline-flex; gap: 4px; }
+.pace-cue__dots i { width: 5px; height: 5px; border-radius: 50%; background: #b88b43; animation: pace-dot 1.1s ease-in-out infinite; }
+.pace-cue__dots i:nth-child(2) { animation-delay: .15s; } .pace-cue__dots i:nth-child(3) { animation-delay: .3s; }
+.pace-cue[data-mode="go"] .pace-cue__dots { display: none; }
+.pace-cue[data-mode="go"]::after { content: ''; width: 7px; height: 7px; margin: -4px 0 0 2px; border-right: 1.5px solid #8a6430; border-bottom: 1.5px solid #8a6430; transform: rotate(45deg); animation: pace-arrow 1.4s ease-in-out infinite; }
+@keyframes pace-dot { 0%, 100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes pace-arrow { 0%, 100% { margin-top: -5px; } 50% { margin-top: -1px; } }
+html.fin-on .pace-cue { background: rgba(28, 22, 60, .55); border-color: rgba(255, 236, 190, .45); color: #fff6df; }
+html.fin-on .pace-cue__dots i { background: #f3d28c; }
+/* PERF (05/11): con la puerta cerrada (opaca) nada de la página de abajo se anima: el grano a pantalla completa y los
+   avisos del hero obligaban a repintar en cada cuadro justo mientras florece el jardín. Se reanudan al entrar. */
+html.is-gated .fx-grain, html.is-gated main *, html.is-gated main *::before, html.is-gated main *::after { animation-play-state: paused !important; }
+.pace-cue:not(.is-on) .pace-cue__dots i, .pace-cue:not(.is-on)::after { animation: none; }

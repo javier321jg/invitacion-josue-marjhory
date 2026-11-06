@@ -39,7 +39,7 @@
    padding: inherit hace coincidir la caja de contenido con la letra original (las letras usan relleno para los trazos). */
 .kx-letters .kx-c, .kx-band .kx-c { position: relative; }
 .kx-letters .kx-c[data-kx]::after, .kx-letters .ch[data-kx]::after, .kx-band .kx-c[data-kx]::after {
-  content: attr(data-kx); position: absolute; inset: 0; padding: inherit; pointer-events: none;
+  content: attr(data-kx); position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; padding: inherit; pointer-events: none;
   /* CREMA: destello de oro encendido (sobre papel claro un blanco haría desaparecer la letra) */
   background: none; color: #b8914f; -webkit-text-fill-color: #b8914f;
   text-shadow: 0 0 .06em rgba(255, 244, 214, .7), 0 0 .34em rgba(201, 162, 94, .55);
@@ -96,7 +96,7 @@
 }
 
 .kx-band__scrim {
-  position: absolute; inset: -34px -7% -26px; pointer-events: none;
+  position: absolute; top: -34px; right: -7%; bottom: -26px; left: -7%; inset: -34px -7% -26px; pointer-events: none;
   /* CREMA: velo de papel claro detrás de la frase (se lee sobre el crema y sobre las fotos) */
   background: radial-gradient(closest-side, rgba(248, 241, 227, .9), rgba(248, 241, 227, .62) 55%, rgba(248, 241, 227, 0));
   opacity: .92;
@@ -105,7 +105,7 @@
   position: absolute; left: -28px; top: -120px; width: calc(100% + 56px); height: calc(100% + 150px);
   pointer-events: none;
 }
-.kx-band__stage { position: absolute; inset: 0; }
+.kx-band__stage { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; }
 .kx-band__rule {
   position: absolute; left: 50%; bottom: 2px; width: min(300px, 54%); height: 7px; transform: translateX(-50%);
   pointer-events: none;
@@ -123,7 +123,7 @@
 
 /* Frase */
 .kx-phrase {
-  position: absolute; inset: 0 0 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: absolute; top: 0; right: 0; bottom: 12px; left: 0; inset: 0 0 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; gap: .04em; transform-origin: 50% 60%;
 }
 .kx-line { display: block; max-width: 100%; text-wrap: balance; }

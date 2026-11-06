@@ -33,6 +33,9 @@
   position: absolute; left: 0; top: 0; margin: 0; padding: 0; border: 0;
   pointer-events: none; -webkit-user-select: none; user-select: none;
 }
+/* pluma de Blender que sigue la punta (data-escritura-pluma): gira sobre la punta, por encima de la tinta */
+.esc-pluma { z-index: 3; max-width: none; transform-origin: 1.6% 98.9%; will-change: transform, opacity;
+  filter: drop-shadow(2px 4px 3px rgba(60, 38, 16, .28)); }
 /* Sin filter en el SVG: cambia en cada cuadro mientras se escribe y un drop-shadow obligaría a re-filtrar la capa.
    El contraste lo da el filete oscuro dentro del SVG; el halo cálido es una capa estática aparte (solo opacidad). */
 .esc-svg { overflow: visible; display: block; }
@@ -51,7 +54,7 @@
   -webkit-mask-position: 0 0; mask-position: 0 0;
 }
 .esc-brillo > i {
-  position: absolute; inset: 0; display: block;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: block;
   background: linear-gradient(104deg, rgba(255, 246, 220, 0) 30%, rgba(255, 246, 220, .5) 44%, rgba(255, 253, 244, 1) 50%,
     rgba(255, 246, 220, .5) 56%, rgba(255, 246, 220, 0) 70%);
   transform: translateX(-110%);

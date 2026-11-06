@@ -42,6 +42,8 @@ const reduced = () => (MQ.matches && !document.documentElement.classList.contain
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 
+// render de Blender de la pluma (blender/pluma2d/render.py): 182×360, punta abajo a la izquierda
+const QUILL = { src: new URL('../botanical/pluma-2d.webp', BASE).href, ar: 182 / 360, tip: [0.016, 0.989] };
 let UID = 0;
 const piezas = new Map();          // elemento → Pieza
 const datos = new Map();           // id → Promise<json>
@@ -521,6 +523,15 @@ class Pieza {
     cv.setAttribute('aria-hidden', 'true');
     this.el.appendChild(cv);
     this.fx = { cv, ctx: cv.getContext('2d'), trails: [], sparks: [], dpr: 1, ox: 0, oy: 0, star: Math.random() * 6, alive: 0, glow: 0 };
+    // 05/11 · data-escritura-pluma: la pluma de Blender (render recortado) sigue la punta mientras escribe. Se usa en la
+    // tarjeta HTML de los teléfonos sin WebGL 2: también ahí «se ve la pluma».
+    if (this.el.hasAttribute('data-escritura-pluma')) {
+      const q = new Image();
+      q.className = 'esc-capa esc-pluma'; q.alt = ''; q.decoding = 'async'; q.setAttribute('aria-hidden', 'true');
+      q.src = QUILL.src; q.style.opacity = '0';
+      this.el.appendChild(q);
+      this.fx.quill = { el: q, px: null, rot: 0, op: 0, h: 0, lift: 0 };
+    }
     this.fxResize();
   }
 
@@ -540,6 +551,7 @@ class Pieza {
     const f = this.fx;
     if (!f) return;
     this.fx = null;
+    if (f.quill) f.quill.el.remove();
     if (now) { f.cv.remove(); return; }
     f.cv.remove();
   }
@@ -652,6 +664,24 @@ class Pieza {
       f.glow = Math.max(0, f.glow - dt * 4);
     }
     ctx.globalCompositeOperation = 'source-over';
+    // pluma HTML: su punta (QUILL.tip) en la punta de la escritura; se levanta entre trazos y se inclina con el avance
+    if (f.quill) {
+      const q = f.quill, H = fs * 2.7, W = H * QUILL.ar;
+      if (q.h !== H) { q.h = H; q.el.style.width = W.toFixed(1) + 'px'; q.el.style.height = H.toFixed(1) + 'px'; }
+      let want = 0;
+      if (pen) {
+        want = pen.pre != null ? clamp(1 - pen.pre) : pen.fin != null ? clamp(1 - pen.fin) : 1;
+        const vx = q.px == null ? 0 : (pen.x - q.px) / Math.max(dt, 1e-3);
+        q.px = pen.x;
+        q.rot += (clamp(vx / (fs * 14), -1, 1) * 7 - q.rot) * Math.min(1, dt * 7);
+        q.lift = lerp(q.lift, pen.down ? 0 : fs * 0.22, Math.min(1, dt * 12));
+        const tx = pen.x - QUILL.tip[0] * W, ty = pen.y - QUILL.tip[1] * H - q.lift;
+        q.el.style.transform = `translate3d(${tx.toFixed(1)}px,${ty.toFixed(1)}px,0) rotate(${q.rot.toFixed(2)}deg)`;
+      }
+      q.op = lerp(q.op, want, Math.min(1, dt * 9));
+      q.el.style.opacity = q.op.toFixed(3);
+      if (q.op > 0.02) alive++;
+    }
     return alive > 0 || (this.estado === 'escribiendo');
   }
 
